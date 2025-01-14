@@ -44,9 +44,14 @@ def haversine(coord1, coord2):
 width_distance_m = haversine(top_left, top_right)
 height_distance_m = haversine(top_left, bottom_left)
 
+# Вычисление разрешения в метрах на пиксель
+resolution_width_m_per_pixel = width_distance_m / width  # Разрешение по ширине
+resolution_height_m_per_pixel = height_distance_m / height  # Разрешение по высоте
+
 # Вывод информации о карте
 print(f"Размерность: {width} x {height} пикселей")
 print(f"Размерность в километрах: {width_distance_m / 1000:.2f} км (по ширине), {height_distance_m / 1000:.2f} км (по высоте)")
+print(f"Разрешение: {resolution_width_m_per_pixel:.2f} м/пиксель (по ширине), {resolution_height_m_per_pixel:.2f} м/пиксель (по высоте)")
 print(f"Система координат: {str(crs).replace('EPSG:', 'EPSG: ') if crs else 'Неизвестная система координат'}")
 print(f"Координаты углов:")
 print(f"  Верхний левый: {top_left}")
