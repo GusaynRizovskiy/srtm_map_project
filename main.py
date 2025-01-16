@@ -70,7 +70,9 @@ plt.colorbar(cax, label='Elevation (meters)')
 plt.title('Digital Elevation Model')
 plt.xlabel('Longitude Index')
 plt.ylabel('Latitude Index')
-plt.axis('off')  # Убираем оси для лучшего отображения
+
+# Убираем отключение осей для их отображения
+# plt.axis('off')  # Убираем оси для лучшего отображения
 
 # Список для хранения выбранных точек с географическими координатами
 selected_points = []
@@ -98,6 +100,7 @@ def onclick(event):
                 color='white', fontsize=10)
 
         plt.draw()  # Обновляем график
+
 
 # Функция для построения профиля местности между двумя точками с учетом кривизны Земли
 def show_profile(event):
@@ -151,12 +154,37 @@ def show_profile(event):
         plt.show()
 
 
+# Функция для очистки выбранных точек и обновления графика
+def clear_values(event):
+    global selected_points
+
+    selected_points.clear()  # Очищаем список выбранных точек
+
+    ax.cla()  # Очищаем ось
+
+    # Повторно отображаем карту высот без точек и меток
+    cax = ax.imshow(elevation_data, cmap='terrain', origin='upper')
+
+    # Установка заголовка и подписей осей
+    ax.set_title('Digital Elevation Model')
+    ax.set_xlabel('Longitude Index')
+    ax.set_ylabel('Latitude Index')
+
+    plt.axis('on')  # Включаем отображение осей
+
+    plt.draw()  # Обновляем график
+
+
 # Подключаем обработчик событий клика мыши и кнопку "Отобразить Профиль"
 cid_click = fig.canvas.mpl_connect('button_press_event', onclick)
 
-button_ax = fig.add_axes([0.8, 0.01, 0.15, 0.05])
-button_show_profile = plt.Button(button_ax, 'Отобразить Профиль')
-
+# Измененные позиции кнопок для размещения слева от карты.
+button_ax_show_profile = fig.add_axes([0.05, 0.01, 0.15, 0.05])
+button_show_profile = plt.Button(button_ax_show_profile, 'Отобразить Профиль')
 button_show_profile.on_clicked(show_profile)
+
+button_ax_clear_values = fig.add_axes([0.05, 0.07, 0.15, 0.05])
+button_clear_values = plt.Button(button_ax_clear_values, 'Очистить значения')
+button_clear_values.on_clicked(clear_values)
 
 plt.show()
