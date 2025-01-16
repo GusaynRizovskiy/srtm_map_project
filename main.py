@@ -105,7 +105,7 @@ def onclick(event):
             print(f"Точка {i + 1}: {point}")
 
 
-# Функция для построения профиля местности между двумя точками и вычисления расстояния в километрах
+# Функция для построения профиля местности между двумя точками с учетом кривизны Земли
 def show_profile(event):
     if len(selected_points) == 2:
         lon1, lat1 = selected_points[0]
@@ -118,14 +118,22 @@ def show_profile(event):
         x2 = int((lon2 - bounds.left) / (bounds.right - bounds.left) * width)
         y2 = int((bounds.top - lat2) / (bounds.top - bounds.bottom) * height)
 
-        # Генерируем линейные интерполированные точки между двумя выбранными точками
-        num_points = max(abs(x2-x1),abs(y2-y1))+1  # Устанавливаем количество интерполированных точек
+        # Генерируем количество интерполированных точек на основе разницы индексов пикселей
+        num_points = max(abs(x2 - x1), abs(y2 - y1)) + 1
 
-        x_values = np.linspace(x1, x2, num_points).astype(int)
-        y_values = np.linspace(y1, y2, num_points).astype(int)
+        # Генерация линейных интерполированных значений долготы и широты с учетом кривизны Земли
+        lons_interp = np.linspace(lon1, lon2, num_points)
+        lats_interp = np.linspace(lat1, lat2, num_points)
 
-        # Получаем высоты для интерполированных точек
-        elevations = elevation_data[y_values, x_values]
+        elevations = []
+
+        for lon, lat in zip(lons_interp, lats_interp):
+            # Получаем индексы пикселей для интерполированных координат
+            x_index = int((lon - bounds.left) / (bounds.right - bounds.left) * width)
+            y_index = int((bounds.top - lat) / (bounds.top - bounds.bottom) * height)
+
+            # Добавляем высоту из массива данных высот в список elevations
+            elevations.append(elevation_data[y_index, x_index])
 
         # Вычисляем расстояние между двумя точками в метрах и переводим в километры
         distance_meters = haversine(selected_points[0], selected_points[1])
@@ -138,19 +146,11 @@ def show_profile(event):
         # Построение нового графика профиля местности
         show_profile.profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
 
-        profile_ax.plot(np.arange(num_points), elevations)
+        profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations)
 
         profile_ax.set_title('Профиль местности')
 
-        profile_ax.set_xlabel('Расстояние (км)')  # Изменяем название оси X на "Расстояние (км)"
-
-        # Устанавливаем метки по оси X с учетом расстояния между точками и переводим в километры
-        tick_locations = np.linspace(0, num_points - 1, num=15).astype(int)  # Местоположения меток на оси X
-
-        tick_labels = [f"{distance_kilometers * i / (num_points - 1):.2f}" for i in tick_locations]
-
-        profile_ax.set_xticks(tick_locations)
-        profile_ax.set_xticklabels(tick_labels)
+        profile_ax.set_xlabel('Расстояние (км)')
 
         profile_ax.set_ylabel('Высота (метры)')
 
