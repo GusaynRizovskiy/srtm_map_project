@@ -71,9 +71,6 @@ plt.title('Digital Elevation Model')
 plt.xlabel('Longitude Index')
 plt.ylabel('Latitude Index')
 
-# Убираем отключение осей для их отображения
-# plt.axis('off')  # Убираем оси для лучшего отображения
-
 # Список для хранения выбранных точек с географическими координатами
 selected_points = []
 
@@ -150,6 +147,12 @@ def show_profile(event):
         profile_ax.set_xlabel('Расстояние (км)')
 
         profile_ax.set_ylabel('Высота (метры)')
+
+        # Добавление зеленой линии между двумя точками на профиле местности
+        profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]], color='green', linestyle='--',
+                        label='Прямая линия')
+
+        profile_ax.legend()  # Добавляем легенду
 
         plt.show()
 
