@@ -99,7 +99,7 @@ def onclick(event):
         plt.draw()  # Обновляем график
 
 
-# Функция для построения профиля местности между двумя точками с учетом кривизны Земли
+# Функция для построения профиля местности между двумя точками с учетом кривизны Земли и отображения первой зоны Френеля как эллипса по зеленой линии.
 def show_profile(event):
     if len(selected_points) == 2:
         lon1, lat1 = selected_points[0]
@@ -131,7 +131,12 @@ def show_profile(event):
 
         # Вычисляем расстояние между двумя точками в метрах и переводим в километры
         distance_meters = haversine(selected_points[0], selected_points[1])
-        distance_kilometers = distance_meters / 1000.0
+
+        # Параметры первой зоны Френеля (радиус в метрах)
+        radius_fresnel_1st_zone_meters = np.sqrt(distance_meters / (4 * np.pi))
+
+        # Вывод радиуса первой зоны Френеля в консоль.
+        print(f"Радиус первой зоны Френеля: {radius_fresnel_1st_zone_meters:.2f} метров")
 
         # Проверяем существование графика профиля и закрываем его при необходимости
         if hasattr(show_profile, 'profile_fig') and show_profile.profile_fig is not None:
@@ -140,7 +145,7 @@ def show_profile(event):
         # Построение нового графика профиля местности
         show_profile.profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
 
-        profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations)
+        profile_ax.plot(np.linspace(0, distance_kilometers := distance_meters / 1000.0, num_points), elevations)
 
         profile_ax.set_title('Профиль местности')
 
@@ -148,7 +153,28 @@ def show_profile(event):
 
         profile_ax.set_ylabel('Высота (метры)')
 
-        # Добавление зеленой линии между двумя точками на профиле местности
+        # Отображение первой зоны Френеля как эллипса по зеленой линии.
+
+        mid_distance_km = distance_kilometers / 2
+
+        ellipse_x_radius_meters = radius_fresnel_1st_zone_meters
+
+        t = np.linspace(0, 2 * np.pi, num_points)
+
+        # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
+        elevation_start = elevations[0]
+        elevation_end = elevations[-1]
+
+        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + ellipse_x_radius_meters * np.sin(t)
+        ellipse_y_lower = np.linspace(elevation_start, elevation_end, num_points) - ellipse_x_radius_meters * np.sin(t)
+
+        profile_ax.fill_between(np.linspace(0, distance_kilometers, num_points),
+                                ellipse_y_upper,
+                                ellipse_y_lower,
+                                color='yellow', alpha=0.3,
+                                label='Первая зона Френеля')
+
+        # Добавление зеленой линии между двумя точками на профиле местности.
         profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]], color='green', linestyle='--',
                         label='Прямая линия')
 
@@ -181,7 +207,6 @@ def clear_values(event):
 # Подключаем обработчик событий клика мыши и кнопку "Отобразить Профиль"
 cid_click = fig.canvas.mpl_connect('button_press_event', onclick)
 
-# Измененные позиции кнопок для размещения слева от карты.
 button_ax_show_profile = fig.add_axes([0.05, 0.01, 0.15, 0.05])
 button_show_profile = plt.Button(button_ax_show_profile, 'Отобразить Профиль')
 button_show_profile.on_clicked(show_profile)
