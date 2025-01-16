@@ -99,12 +99,6 @@ def onclick(event):
 
         plt.draw()  # Обновляем график
 
-    if len(selected_points) == 2:
-        print("Выбраны точки:")
-        for i, point in enumerate(selected_points):
-            print(f"Точка {i + 1}: {point}")
-
-
 # Функция для построения профиля местности между двумя точками с учетом кривизны Земли
 def show_profile(event):
     if len(selected_points) == 2:
