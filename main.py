@@ -159,7 +159,8 @@ def show_profile(event):
 
         ellipse_x_radius_meters = radius_fresnel_1st_zone_meters
 
-        t = np.linspace(0, 2 * np.pi, num_points)
+        # Измените диапазон t для половины периода
+        t = np.linspace(0, np.pi, num_points)
 
         # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
         elevation_start = elevations[0]
