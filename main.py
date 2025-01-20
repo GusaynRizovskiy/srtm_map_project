@@ -115,84 +115,72 @@ def show_profile(event):
         # Генерируем количество интерполированных точек на основе разницы индексов пикселей
         num_points = max(abs(x2 - x1), abs(y2 - y1)) + 1
 
-        # Генерация линейных интерполированных значений долготы и широты с учетом кривизны Земли
+        # Генерация линейных интерполированных значений долготы и широты
         lons_interp = np.linspace(lon1, lon2, num_points)
         lats_interp = np.linspace(lat1, lat2, num_points)
 
         elevations = []
 
         for lon, lat in zip(lons_interp, lats_interp):
-            # Получаем индексы пикселей для интерполированных координат
             x_index = int((lon - bounds.left) / (bounds.right - bounds.left) * width)
             y_index = int((bounds.top - lat) / (bounds.top - bounds.bottom) * height)
-
-            # Добавляем высоту из массива данных высот в список elevations
             elevations.append(elevation_data[y_index, x_index])
 
-        # Вычисляем расстояние между двумя точками в метрах и переводим в километры
+        # Вычисление расстояния между двумя точками
         distance_meters = haversine(selected_points[0], selected_points[1])
-
-        # Параметры первой зоны Френеля (радиус в метрах)
         radius_fresnel_1st_zone_meters = np.sqrt(distance_meters / (4 * np.pi))
 
-        # Вывод радиуса первой зоны Френеля в консоль.
         print(f"Радиус первой зоны Френеля: {radius_fresnel_1st_zone_meters:.2f} метров")
 
-        # Проверяем существование графика профиля и закрываем его при необходимости
         if hasattr(show_profile, 'profile_fig') and show_profile.profile_fig is not None:
             plt.close(show_profile.profile_fig)
 
-        # Построение нового графика профиля местности
+        # Построение графика профиля местности
         show_profile.profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
-
         profile_ax.plot(np.linspace(0, distance_kilometers := distance_meters / 1000.0, num_points), elevations)
 
         profile_ax.set_title('Профиль местности')
-
         profile_ax.set_xlabel('Расстояние (км)')
-
         profile_ax.set_ylabel('Высота (метры)')
 
-        # Отображение первой зоны Френеля как эллипса по зеленой линии.
-
-        mid_distance_km = distance_kilometers / 2
-
-        ellipse_x_radius_meters = radius_fresnel_1st_zone_meters
-
-        # Измените диапазон t для половины периода
+        # Генерация синусоидальной верхней границы эллипса
         t = np.linspace(0, np.pi, num_points)
 
-        # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
-        # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
+        # Синусоида с учетом радиуса зоны Френеля
+        sinusoidal_variation = radius_fresnel_1st_zone_meters * np.sin(t)
+
         elevation_start = elevations[0]
         elevation_end = elevations[-1]
 
-        # Генерируем верхнюю границу эллипса
-        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + radius_fresnel_1st_zone_meters
+        # Линейная интерполяция высот между начальной и конечной точками
+        linear_elevation_line = np.linspace(elevation_start, elevation_end, num_points)
 
-        # Устанавливаем нижнюю границу на уровень зеленой линии
-        ellipse_y_lower = np.maximum(np.linspace(elevation_start, elevation_end, num_points), elevation_start)
+        # Верхняя граница эллипса с учетом синусоиды
+        ellipse_y_upper = linear_elevation_line + sinusoidal_variation
 
-        # Создаем массив для синусоидальной формы с учетом радиуса зоны Френеля
-        t = np.linspace(0, np.pi, num_points)
-        sinusoidal_variation = radius_fresnel_1st_zone_meters * np.sin(t)
+        # Построение верхней границы эллипса
+        profile_ax.plot(np.linspace(0, distance_kilometers, num_points), ellipse_y_upper,
+                        color='yellow', linestyle='-', label='Верхняя граница зоны Френеля')
 
-        # Обновляем верхнюю границу эллипса с учетом синусоидального варианта
-        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + sinusoidal_variation
-
-        profile_ax.fill_between(np.linspace(0, distance_kilometers, num_points),
-                                ellipse_y_upper,
-                                ellipse_y_lower,
-                                where=(ellipse_y_upper >= ellipse_y_lower),  # Условие для заполнения области
-                                color='yellow', alpha=0.3,
-                                label='Первая зона Френеля')
-
-        # Добавление зеленой линии между двумя точками на профиле местности.
+        # Добавление зеленой линии между двумя точками на профиле местности
         profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]], color='green', linestyle='--',
                         label='Прямая линия')
 
-        profile_ax.legend()  # Добавляем легенду
+        # Определение середины зеленой линии
+        mid_distance_km = distance_kilometers / 2
+        mid_elevation = np.interp(mid_distance_km, [0, distance_kilometers], [elevations[0], elevations[-1]])
 
+        # Отметка точки середины на графике
+        profile_ax.plot(mid_distance_km, mid_elevation, 'bo', label='Середина зеленой линии')
+
+        # Построение радиуса зоны Френеля от середины зеленой линии перпендикулярно к синусоиде
+        fresnel_top_y = mid_elevation + radius_fresnel_1st_zone_meters
+
+        profile_ax.plot([mid_distance_km], [fresnel_top_y],
+                        color='purple', marker='o', label='Пересечение синусоиды')
+
+        # Отметка точки максимума синусоиды на графике
+        profile_ax.legend()
         plt.show()
 
 
