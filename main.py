@@ -163,15 +163,27 @@ def show_profile(event):
         t = np.linspace(0, np.pi, num_points)
 
         # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
+        # Используем высоты начальной и конечной точки зеленой линии для создания эллипса.
         elevation_start = elevations[0]
         elevation_end = elevations[-1]
 
-        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + ellipse_x_radius_meters * np.sin(t)
-        ellipse_y_lower = np.linspace(elevation_start, elevation_end, num_points) - ellipse_x_radius_meters * np.sin(t)
+        # Генерируем верхнюю границу эллипса
+        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + radius_fresnel_1st_zone_meters
+
+        # Устанавливаем нижнюю границу на уровень зеленой линии
+        ellipse_y_lower = np.maximum(np.linspace(elevation_start, elevation_end, num_points), elevation_start)
+
+        # Создаем массив для синусоидальной формы с учетом радиуса зоны Френеля
+        t = np.linspace(0, np.pi, num_points)
+        sinusoidal_variation = radius_fresnel_1st_zone_meters * np.sin(t)
+
+        # Обновляем верхнюю границу эллипса с учетом синусоидального варианта
+        ellipse_y_upper = np.linspace(elevation_start, elevation_end, num_points) + sinusoidal_variation
 
         profile_ax.fill_between(np.linspace(0, distance_kilometers, num_points),
                                 ellipse_y_upper,
                                 ellipse_y_lower,
+                                where=(ellipse_y_upper >= ellipse_y_lower),  # Условие для заполнения области
                                 color='yellow', alpha=0.3,
                                 label='Первая зона Френеля')
 
