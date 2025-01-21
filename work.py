@@ -118,6 +118,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def show_profile(self):
         """Отображение профиля местности между двумя выбранными точками."""
+        plt.close('all')
+
         if len(self.selected_points) == 2:
             lat1, lon1 = self.selected_points[0]
             lat2, lon2 = self.selected_points[1]
@@ -140,15 +142,22 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                 y_index = int((bounds.top - lat) / (bounds.top - bounds.bottom) * height)
                 elevations.append(elevation_data[y_index, x_index])
 
+            # Динамический расчет радиуса зоны Френеля
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
-            radius_fresnel_1st_zone_meters = np.sqrt(distance_meters / (4 * np.pi))
+            frequency = 2.4  # Пример частоты в ГГц (WiFi)
+
+            # Формула расчета радиуса зоны Френеля
+            radius_fresnel_1st_zone_meters = 17.31 * np.sqrt(
+                (distance_meters / 1000) / (4 * frequency)
+            )
 
             print(f"Радиус первой зоны Френеля: {radius_fresnel_1st_zone_meters:.2f} метров")
 
             profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
             distance_kilometers = distance_meters / 1000.0
 
-            profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations)
+            profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations,
+                            color='blue', label='Профиль рельефа')
 
             profile_ax.set_title('Профиль местности')
             profile_ax.set_xlabel('Расстояние (км)')
@@ -161,29 +170,22 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             elevation_end = elevations[-1]
 
             linear_elevation_line = np.linspace(elevation_start, elevation_end, num_points)
-
             ellipse_y_upper = linear_elevation_line + sinusoidal_variation
 
             # Построение верхней границы эллипса
             profile_ax.plot(np.linspace(0, distance_kilometers, num_points), ellipse_y_upper,
                             color='yellow', linestyle='-', label='Верхняя граница зоны Френеля')
 
-            # Указание точки максимума синусоиды
-            max_sinusoid_x_km = distance_kilometers / 2  # Максимум находится в середине
-            max_sinusoid_y = elevation_start + radius_fresnel_1st_zone_meters  # Высота максимума
-
-            # Добавление зеленой линии между двумя точками на профиле местности
-            profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]], color='green', linestyle='--',
-                            label='Прямая линия')
-
-            mid_distance_km = distance_kilometers / 2
-            mid_elevation = np.interp(mid_distance_km, [0, distance_kilometers], [elevations[0], elevations[-1]])
-
-            fresnel_top_y = mid_elevation + radius_fresnel_1st_zone_meters
+            # Добавление прямой линии между точками
+            profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]],
+                            color='green', linestyle='--', label='Прямая линия')
 
             profile_ax.legend()
+            profile_ax.grid(True)
 
-            plt.show()  # Отображаем профиль
+            plt.tight_layout()
+            plt.show()
+
     def plot_elevation_map(self):
         # Очистка текущей оси перед построением
         self.ax.clear()
