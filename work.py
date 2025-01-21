@@ -63,72 +63,59 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.pushButton_clean_values.clicked.connect(self.clear_values)
 
-        self.pushButton_set_map_point1.clicked.connect(self.canvas_connect_point_1)
-        self.pushButton_set_map_point2.clicked.connect(self.canvas_connect_point_2)
-    def canvas_connect_point_1(self):
-        self.canvas.mpl_connect('button_press_event', self.onclick_point1)
-    def canvas_connect_point_2(self):
-        self.canvas.mpl_connect('button_press_event', self.onclick_point2)
-    def plot_elevation_map(self):
-        # Очистка текущей оси перед построением
-        self.ax.clear()
+        self.pushButton_set_map_point1.clicked.connect(self.prepare_point1_selection)
+        self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
 
-        # Отображение карты высот
-        cax = self.ax.imshow(elevation_data, cmap='terrain', origin='upper')
+    def prepare_point1_selection(self):
+        """Подготовка к выбору первой точки"""
+        if len(self.selected_points) == 0:
+            self.pushButton_set_map_point1.setEnabled(False)
+            self.canvas.mpl_connect('button_press_event', self.onclick_point1)
 
-        # Добавление цветовой шкалы только если она еще не добавлена
-        if self.colorbar is None:
-            self.colorbar = self.canvas.figure.colorbar(cax, ax=self.ax, label='Elevation (meters)')
+    def prepare_point2_selection(self):
+        """Подготовка к выбору второй точки"""
+        if len(self.selected_points) == 1:
+            self.pushButton_set_map_point2.setEnabled(False)
+            self.canvas.mpl_connect('button_press_event', self.onclick_point2)
 
-        # Установка заголовка и подписей осей
-        self.ax.set_title('Digital Elevation Model')
-        self.ax.set_xlabel('Longitude Index')
-        self.ax.set_ylabel('Latitude Index')
-
-        # Обновление холста
-        self.canvas.draw()
-        self.pushButton_show_graphic.clicked.connect(self.show_prof)
-
-
-    def show_prof(self):
-        if len(self.selected_points)==2:
-            self.show_profile()
     def onclick_point1(self, event):
-        self.pushButton_set_map_point1.setEnabled(False)
-        """Обработка кликов мыши на графике."""
-        if len(self.selected_points) < 1 and event.xdata is not None and event.ydata is not None:
+        """Обработчик клика для первой точки"""
+        if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
             lat_index = int(event.ydata)
             lon = bounds.left + (lon_index / width) * (bounds.right - bounds.left)
             lat = bounds.top - (lat_index / height) * (bounds.top - bounds.bottom)
-            self.selected_points.append((round(lat, 4), round(lon, 4)))  # Сохраняем как (широта, долгота)
 
-            # Отмечаем точку на изображении
-            self.ax.plot(event.xdata, event.ydata, 'ro')  # Красная точка
-            point_number = len(self.selected_points)
+            self.selected_points.append((round(lat, 4), round(lon, 4)))
+
+            # Отмечаем первую точку
+            self.ax.plot(event.xdata, event.ydata, 'ro')
             self.ax.text(event.xdata + 10, event.ydata + 10,
-                         f'Точка 1: ({self.selected_points[-1][0]}, {self.selected_points[-1][1]})',
+                         f'Точка 1: {self.selected_points[-1]}',
                          color='white', fontsize=10)
 
-            self.canvas.draw()  # Обновляем график
+            self.canvas.draw()
+            self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point1))
+
     def onclick_point2(self, event):
-        self.pushButton_set_map_point2.setEnabled(False)
-        """Обработка кликов мыши на графике."""
-        if len(self.selected_points) < 2 and event.xdata is not None and event.ydata is not None:
+        """Обработчик клика для второй точки"""
+        if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
             lat_index = int(event.ydata)
             lon = bounds.left + (lon_index / width) * (bounds.right - bounds.left)
             lat = bounds.top - (lat_index / height) * (bounds.top - bounds.bottom)
-            self.selected_points.append((round(lat, 4), round(lon, 4)))  # Сохраняем как (широта, долгота)
 
-            # Отмечаем точку на изображении
-            self.ax.plot(event.xdata, event.ydata, 'ro')  # Красная точка
-            point_number = len(self.selected_points)
+            self.selected_points.append((round(lat, 4), round(lon, 4)))
+
+            # Отмечаем вторую точку
+            self.ax.plot(event.xdata, event.ydata, 'ro')
             self.ax.text(event.xdata + 10, event.ydata + 10,
-                         f'Точка 2: ({self.selected_points[-1][0]}, {self.selected_points[-1][1]})',
+                         f'Точка 2: {self.selected_points[-1]}',
                          color='white', fontsize=10)
 
-            self.canvas.draw()  # Обновляем график
+            self.canvas.draw()
+            self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point2))
+
     def show_profile(self):
         """Отображение профиля местности между двумя выбранными точками."""
         if len(self.selected_points) == 2:
@@ -197,6 +184,30 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.legend()
 
             plt.show()  # Отображаем профиль
+    def plot_elevation_map(self):
+        # Очистка текущей оси перед построением
+        self.ax.clear()
+
+        # Отображение карты высот
+        cax = self.ax.imshow(elevation_data, cmap='terrain', origin='upper')
+
+        # Добавление цветовой шкалы только если она еще не добавлена
+        if self.colorbar is None:
+            self.colorbar = self.canvas.figure.colorbar(cax, ax=self.ax, label='Elevation (meters)')
+
+        # Установка заголовка и подписей осей
+        self.ax.set_title('Digital Elevation Model')
+        self.ax.set_xlabel('Longitude Index')
+        self.ax.set_ylabel('Latitude Index')
+
+        # Обновление холста
+        self.canvas.draw()
+        self.pushButton_show_graphic.clicked.connect(self.show_prof)
+
+
+    def show_prof(self):
+        if len(self.selected_points)==2:
+            self.show_profile()
     def clear_values(self):
         """Очистка выбранных точек и обновление карты."""
         self.selected_points.clear()  # Очищаем список выбранных точек
