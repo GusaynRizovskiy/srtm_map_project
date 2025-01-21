@@ -60,8 +60,11 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         # Отрисовка карты
         self.plot_elevation_map()
+
         self.pushButton_set_map_point1.clicked.connect(self.canvas_connect_point_1)
         self.pushButton_set_map_point2.clicked.connect(self.canvas_connect_point_2)
+
+        self.pushButton_clean_values.clicked.connect(self.clear_values)
     def canvas_connect_point_1(self):
         self.canvas.mpl_connect('button_press_event', self.onclick_point1)
     def canvas_connect_point_2(self):
@@ -118,6 +121,11 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                          color='white', fontsize=10)
 
             self.canvas.draw()  # Обновляем график
+    def clear_values(self):
+        """Очистка выбранных точек и обновление карты."""
+        self.selected_points.clear()  # Очищаем список выбранных точек
+
+        self.plot_elevation_map()  # Повторно отображаем карту высот
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
