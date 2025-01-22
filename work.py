@@ -66,6 +66,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point1.clicked.connect(self.prepare_point1_selection)
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
 
+        self.pushButton_set_point_on_map.clicked.connect(self.set_points)
+
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
         if len(self.selected_points) == 0:
@@ -218,6 +220,35 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.pushButton_set_map_point1.setEnabled(True)
         self.pushButton_set_map_point2.setEnabled(True)
+
+    def set_points(self):
+        """Устанавливает точки на карте на основе значений из спин боксов"""
+        lat_deg = int(self.spinBox_point1_gradus)
+        lat_min = int(self.spinBox_point1_minutes)
+        lat_sec = int(self.spinBox_point1_seconds)
+
+        lon_deg = int(self.spinBox_point2_gradus)
+        lon_min = int(self.spinBox_point2_minutes)
+        lon_sec = int(self.spinBox_point2_seconds)
+
+        # Преобразование в десятичный формат
+        latitude = lat_deg + (lat_min / 60) + (lat_sec / 3600)
+        longitude = lon_deg + (lon_min / 60) + (lon_sec / 3600)
+
+        # Сохраняем координаты с округлением
+        self.selected_points.append((round(latitude, 4), round(longitude, 4)))
+
+        # Отмечаем точку на графике
+        x_data = (longitude - self.bounds[0]) / (self.bounds[1] - self.bounds[0]) * self.fig.get_size_inches()[0]
+        y_data = (self.bounds[3] - latitude) / (self.bounds[3] - self.bounds[2]) * self.fig.get_size_inches()[1]
+
+        self.ax.plot(x_data, y_data, 'ro')
+        self.ax.text(x_data + 10, y_data + 10,
+                     f'Точка {len(self.selected_points)}: {self.selected_points[-1]}',
+                     color='white', fontsize=10)
+
+        self.canvas.draw()
+
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     form = Form_main()
