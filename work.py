@@ -10,11 +10,55 @@ from form_of_window import Form1
 
 # Укажите путь к вашему файлу .hgt
 hgt_file_path = 'N40E018.hgt/N40E018.hgt'
+def decimal_to_dms(degrees):
+    """Преобразует десятичные градусы в градусы, минуты и секунды."""
+    d = int(degrees)
+    m = int((degrees - d) * 60)
+    s = (degrees - d - m / 60) * 3600
+    return d, m, round(s, 2)  # Округляем секунды до двух знаков после запятой
+
+
+# Укажите путь к вашему файлу .hgt
+hgt_file_path = 'N40E018.hgt/N40E018.hgt'
 
 # Чтение данных из файла .hgt
 with rasterio.open(hgt_file_path) as src:
     elevation_data = src.read(1)  # Чтение первого канала (высоты)
 
+    # Получаем параметры трансформации
+    transform = src.transform
+
+    # Получаем размеры растрового изображения
+    width = src.width
+    height = src.height
+
+    # Вычисляем координаты углов
+    top_left = transform * (0, 0)  # Верхний левый угол
+    top_right = transform * (width, 0)  # Верхний правый угол
+    bottom_left = transform * (0, height)  # Нижний левый угол
+    bottom_right = transform * (width, height)  # Нижний правый угол
+
+    # Преобразуем координаты в формат DMS
+    corners_dms = {
+        "Верхний левый": top_left,
+        "Верхний правый": top_right,
+        "Нижний левый": bottom_left,
+        "Нижний правый": bottom_right,
+    }
+
+    print("\nКоординаты углов карты (в градусах, минутах и секундах):")
+
+    for corner, coords in corners_dms.items():
+        lat_d, lat_m, lat_s = decimal_to_dms(abs(coords[1]))  # Широта
+        lon_d, lon_m, lon_s = decimal_to_dms(abs(coords[0]))  # Долгота
+
+        lat_direction = 'N' if coords[1] >= 0 else 'S'
+        lon_direction = 'E' if coords[0] >= 0 else 'W'
+
+        print(f"{corner}: Широта: {lat_d}° {lat_m}' {lat_s}\" {lat_direction}, "
+              f"Долгота: {lon_d}° {lon_m}' {lon_s}\" {lon_direction}")
+
+    # Функция для расчета расстояния между двумя точками на поверхности Земли
     # Получение метаданных
     width = src.width
     height = src.height
@@ -24,8 +68,6 @@ with rasterio.open(hgt_file_path) as src:
 if elevation_data.size == 0:
     raise ValueError("Данные высоты пусты. Проверьте файл .hgt.")
 
-
-# Функция для расчета расстояния между двумя точками на поверхности Земли
 def haversine(coord1, coord2):
     R = 6371e3  # Радиус Земли в метрах
     lat1, lon1 = np.radians(coord1)
@@ -223,13 +265,13 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def set_points(self):
         """Устанавливает точки на карте на основе значений из спин боксов"""
-        lat_deg = int(self.spinBox_point1_gradus)
-        lat_min = int(self.spinBox_point1_minutes)
-        lat_sec = int(self.spinBox_point1_seconds)
+        lat_deg = int(self.spinBox_point1_latitude_gradus.value())
+        lat_min = int(self.spinBox_point1_latitude_minutes.value())
+        lat_sec = int(self.spinBox_point1_latitude_seconds.value())
 
-        lon_deg = int(self.spinBox_point2_gradus)
-        lon_min = int(self.spinBox_point2_minutes)
-        lon_sec = int(self.spinBox_point2_seconds)
+        lon_deg = int(self.spinBox_point1_longtitude_gradus.value())
+        lon_min = int(self.spinBox_point1_longtitude_minutes.value())
+        lon_sec = int(self.spinBox_point1_longtitude_seconds.value())
 
         # Преобразование в десятичный формат
         latitude = lat_deg + (lat_min / 60) + (lat_sec / 3600)
