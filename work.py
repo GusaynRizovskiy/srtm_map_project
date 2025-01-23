@@ -61,6 +61,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
 
+        self.pushButton_set_point_on_map.setEnabled(False)
+
 
 
     def open_file_dialog(self):
@@ -81,6 +83,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             else:
                 QMessageBox.warning(self, "Ошибка", "Файл не существует.")
         self.pushButton_clean_values.setEnabled(False)
+        self.pushButton_set_point_on_map.setEnabled(True)
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
