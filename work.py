@@ -293,7 +293,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Получение значений для второй точки
         lat_deg2 = int(self.spinBox_point2_latitude_gradus.value())
         lat_min2 = int(self.spinBox_point2_latitude_minutes.value())
-        lat_sec2 = int(self.spinBox_point2_latitude_minutes_2.value())
+        lat_sec2 = int(self.spinBox_point2_latitude_seconds.value())
 
         lon_deg2 = int(self.spinBox_point2_longtitude_gradus.value())
         lon_min2 = int(self.spinBox_point2_longtitude_minutes.value())
