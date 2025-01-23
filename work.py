@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPu
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from form_of_window import Form1
+import os
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 # Укажите путь к вашему файлу .hgt
 hgt_file_path = 'N40E018.hgt/N40E018.hgt'
@@ -58,14 +60,26 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
 
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
+
+
+
     def open_file_dialog(self):
-        # Открытие диалогового окна выбора файла
+        # Open the file dialog
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
-                                                   "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg)",
+                                                   "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
                                                    options=options)
-        self.plot_elevation_map()
-
+        # Check if a file was selected
+        if file_path:
+            # Check if the file exists
+            if os.path.isfile(file_path):
+                # Check if the file extension is .hgt
+                if file_path.endswith('.hgt'):
+                    self.plot_elevation_map()  # Call your method to plot the elevation map
+                else:
+                    QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
+            else:
+                QMessageBox.warning(self, "Ошибка", "Файл не существует.")
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
