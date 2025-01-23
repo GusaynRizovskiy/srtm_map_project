@@ -276,16 +276,22 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Сохраняем координаты с округлением
         self.selected_points.append((round(latitude, 4), round(longitude, 4)))
 
+        # Преобразование координат в индексы для отображения на графике
+        lon_index = int((longitude - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+        lat_index = int((self.bounds.top - latitude) / (self.bounds.top - self.bounds.bottom) * self.height)
+
         # Отмечаем точку на графике
-        x_data = (longitude - self.bounds[0]) / (self.bounds[1] - self.bounds[0]) * self.fig.get_size_inches()[0]
-        y_data = (self.bounds[3] - latitude) / (self.bounds[3] - self.bounds[2]) * self.fig.get_size_inches()[1]
+        x_data = lon_index
+        y_data = lat_index
 
         self.ax.plot(x_data, y_data, 'ro')
         self.ax.text(x_data + 10, y_data + 10,
                      f'Точка {len(self.selected_points)}: {self.selected_points[-1]}',
                      color='white', fontsize=10)
 
+        # Обновление холста
         self.canvas.draw()
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
