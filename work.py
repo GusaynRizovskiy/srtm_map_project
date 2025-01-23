@@ -3,7 +3,7 @@ import numpy as np
 import rasterio
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QPalette, QBrush, QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,QFileDialog
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from form_of_window import Form1
@@ -50,7 +50,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.ax = self.canvas.figure.add_subplot(111)
 
         # Отрисовка карты
-        self.pushButton_load_map.clicked.connect(self.plot_elevation_map)
+        self.pushButton_load_map.clicked.connect(self.open_file_dialog)
 
         self.pushButton_clean_values.clicked.connect(self.clear_values)
 
@@ -58,6 +58,14 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
 
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
+    def open_file_dialog(self):
+        # Открытие диалогового окна выбора файла
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
+                                                   "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg)",
+                                                   options=options)
+        self.plot_elevation_map()
+
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
@@ -181,7 +189,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def plot_elevation_map(self):
         # Укажите путь к вашему файлу .hgt
-        hgt_file_path = 'N40E018.hgt/N40E018.hgt'
         with rasterio.open(hgt_file_path) as src:
             self.width = src.width
             self.height = src.height
@@ -245,7 +252,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Обновление холста
         self.canvas.draw()
         self.pushButton_show_graphic.clicked.connect(self.show_prof)
-
 
     def show_prof(self):
         if len(self.selected_points)==2:
