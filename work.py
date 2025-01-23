@@ -17,57 +17,6 @@ def decimal_to_dms(degrees):
     s = (degrees - d - m / 60) * 3600
     return d, m, round(s, 2)  # Округляем секунды до двух знаков после запятой
 
-
-# Укажите путь к вашему файлу .hgt
-hgt_file_path = 'N40E018.hgt/N40E018.hgt'
-
-# Чтение данных из файла .hgt
-with rasterio.open(hgt_file_path) as src:
-    elevation_data = src.read(1)  # Чтение первого канала (высоты)
-
-    # Получаем параметры трансформации
-    transform = src.transform
-
-    # Получаем размеры растрового изображения
-    width = src.width
-    height = src.height
-
-    # Вычисляем координаты углов
-    top_left = transform * (0, 0)  # Верхний левый угол
-    top_right = transform * (width, 0)  # Верхний правый угол
-    bottom_left = transform * (0, height)  # Нижний левый угол
-    bottom_right = transform * (width, height)  # Нижний правый угол
-
-    # Преобразуем координаты в формат DMS
-    corners_dms = {
-        "Верхний левый": top_left,
-        "Верхний правый": top_right,
-        "Нижний левый": bottom_left,
-        "Нижний правый": bottom_right,
-    }
-
-    print("\nКоординаты углов карты (в градусах, минутах и секундах):")
-
-    for corner, coords in corners_dms.items():
-        lat_d, lat_m, lat_s = decimal_to_dms(abs(coords[1]))  # Широта
-        lon_d, lon_m, lon_s = decimal_to_dms(abs(coords[0]))  # Долгота
-
-        lat_direction = 'N' if coords[1] >= 0 else 'S'
-        lon_direction = 'E' if coords[0] >= 0 else 'W'
-
-        print(f"{corner}: Широта: {lat_d}° {lat_m}' {lat_s}\" {lat_direction}, "
-              f"Долгота: {lon_d}° {lon_m}' {lon_s}\" {lon_direction}")
-
-    # Функция для расчета расстояния между двумя точками на поверхности Земли
-    # Получение метаданных
-    width = src.width
-    height = src.height
-    bounds = src.bounds
-
-# Проверка на наличие ненулевых данных
-if elevation_data.size == 0:
-    raise ValueError("Данные высоты пусты. Проверьте файл .hgt.")
-
 def haversine(coord1, coord2):
     R = 6371e3  # Радиус Земли в метрах
     lat1, lon1 = np.radians(coord1)
@@ -101,7 +50,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.ax = self.canvas.figure.add_subplot(111)
 
         # Отрисовка карты
-        self.plot_elevation_map()
+        self.pushButton_load_map.clicked.connect(self.plot_elevation_map)
 
         self.pushButton_clean_values.clicked.connect(self.clear_values)
 
@@ -127,8 +76,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
             lat_index = int(event.ydata)
-            lon = bounds.left + (lon_index / width) * (bounds.right - bounds.left)
-            lat = bounds.top - (lat_index / height) * (bounds.top - bounds.bottom)
+            lon = self.bounds.left + (lon_index / self.width) * (self.bounds.right - self.bounds.left)
+            lat = self.bounds.top - (lat_index / self.height) * (self.bounds.top - self.bounds.bottom)
 
             self.selected_points.append((round(lat, 4), round(lon, 4)))
 
@@ -146,8 +95,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
             lat_index = int(event.ydata)
-            lon = bounds.left + (lon_index / width) * (bounds.right - bounds.left)
-            lat = bounds.top - (lat_index / height) * (bounds.top - bounds.bottom)
+            lon = self.bounds.left + (lon_index / self.width) * (self.bounds.right - self.bounds.left)
+            lat = self.bounds.top - (lat_index / self.height) * (self.bounds.top - self.bounds.bottom)
 
             self.selected_points.append((round(lat, 4), round(lon, 4)))
 
@@ -168,11 +117,11 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             lat1, lon1 = self.selected_points[0]
             lat2, lon2 = self.selected_points[1]
 
-            x1 = int((lon1 - bounds.left) / (bounds.right - bounds.left) * width)
-            y1 = int((bounds.top - lat1) / (bounds.top - bounds.bottom) * height)
+            x1 = int((lon1 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+            y1 = int((self.bounds.top - lat1) / (self.bounds.top - self.bounds.bottom) * self.height)
 
-            x2 = int((lon2 - bounds.left) / (bounds.right - bounds.left) * width)
-            y2 = int((bounds.top - lat2) / (bounds.top - bounds.bottom) * height)
+            x2 = int((lon2 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+            y2 = int((self.bounds.top - lat2) / (self.bounds.top - self.bounds.bottom) * self.height)
 
             num_points = max(abs(x2 - x1), abs(y2 - y1)) + 1
 
@@ -182,9 +131,9 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             elevations = []
 
             for lon, lat in zip(lons_interp, lats_interp):
-                x_index = int((lon - bounds.left) / (bounds.right - bounds.left) * width)
-                y_index = int((bounds.top - lat) / (bounds.top - bounds.bottom) * height)
-                elevations.append(elevation_data[y_index, x_index])
+                x_index = int((lon - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+                y_index = int((self.bounds.top - lat) / (self.bounds.top - self.bounds.bottom) * self.height)
+                elevations.append(self.elevation_data[y_index, x_index])
 
             # Динамический расчет радиуса зоны Френеля
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
@@ -231,11 +180,58 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             plt.show()
 
     def plot_elevation_map(self):
+        # Укажите путь к вашему файлу .hgt
+        hgt_file_path = 'N40E018.hgt/N40E018.hgt'
+        with rasterio.open(hgt_file_path) as src:
+            self.width = src.width
+            self.height = src.height
+            self.bounds = src.bounds
+            self.elevation_data = src.read(1)  # Чтение первого канала (высоты)
+
+            # Получаем параметры трансформации
+            transform = src.transform
+
+            # Получаем размеры растрового изображения
+            width = src.width
+            height = src.height
+
+            # Вычисляем координаты углов
+            top_left = transform * (0, 0)  # Верхний левый угол
+            top_right = transform * (width, 0)  # Верхний правый угол
+            bottom_left = transform * (0, height)  # Нижний левый угол
+            bottom_right = transform * (width, height)  # Нижний правый угол
+
+            # Преобразуем координаты в формат DMS
+            corners_dms = {
+                "Верхний левый": top_left,
+                "Верхний правый": top_right,
+                "Нижний левый": bottom_left,
+                "Нижний правый": bottom_right,
+            }
+
+            print("\nКоординаты углов карты (в градусах, минутах и секундах):")
+
+            for corner, coords in corners_dms.items():
+                lat_d, lat_m, lat_s = decimal_to_dms(abs(coords[1]))  # Широта
+                lon_d, lon_m, lon_s = decimal_to_dms(abs(coords[0]))  # Долгота
+
+                lat_direction = 'N' if coords[1] >= 0 else 'S'
+                lon_direction = 'E' if coords[0] >= 0 else 'W'
+
+                print(f"{corner}: Широта: {lat_d}° {lat_m}' {lat_s}\" {lat_direction}, "
+                      f"Долгота: {lon_d}° {lon_m}' {lon_s}\" {lon_direction}")
+
+            # Функция для расчета расстояния между двумя точками на поверхности Земли
+            # Получение метаданных
+
+        # Проверка на наличие ненулевых данных
+        if self.elevation_data.size == 0:
+            raise ValueError("Данные высоты пусты. Проверьте файл .hgt.")
         # Очистка текущей оси перед построением
         self.ax.clear()
 
         # Отображение карты высот
-        cax = self.ax.imshow(elevation_data, cmap='terrain', origin='upper')
+        cax = self.ax.imshow(self.elevation_data, cmap='terrain', origin='upper')
 
         # Добавление цветовой шкалы только если она еще не добавлена
         if self.colorbar is None:
