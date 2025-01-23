@@ -66,15 +66,15 @@ class Form_main(QtWidgets.QMainWindow,Form1):
     def open_file_dialog(self):
         # Open the file dialog
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
+        self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
                                                    "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
                                                    options=options)
         # Check if a file was selected
-        if file_path:
+        if self.file_path:
             # Check if the file exists
-            if os.path.isfile(file_path):
+            if os.path.isfile(self.file_path):
                 # Check if the file extension is .hgt
-                if file_path.endswith('.hgt'):
+                if self.file_path.endswith('.hgt'):
                     self.plot_elevation_map()  # Call your method to plot the elevation map
                 else:
                     QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
@@ -203,7 +203,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def plot_elevation_map(self):
         # Укажите путь к вашему файлу .hgt
-        with rasterio.open(hgt_file_path) as src:
+        with rasterio.open(self.file_path) as src:
             self.width = src.width
             self.height = src.height
             self.bounds = src.bounds
