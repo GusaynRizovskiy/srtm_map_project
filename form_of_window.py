@@ -276,6 +276,14 @@ class Form1(object):
         font.setPointSize(14)
         self.label_15.setFont(font)
         self.label_15.setObjectName("label_15")
+        self.pushButton_load_map = QtWidgets.QPushButton(Dialog)
+        self.pushButton_load_map.setGeometry(QtCore.QRect(30, 20, 121, 31))
+        font = QtGui.QFont()
+        font.setFamily("Tahoma")
+        font.setPointSize(14)
+        font.setItalic(False)
+        self.pushButton_load_map.setFont(font)
+        self.pushButton_load_map.setObjectName("pushButton_load_map")
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
@@ -307,6 +315,7 @@ class Form1(object):
         self.label_14.setText(_translate("Dialog", "\'"))
         self.label_4.setText(_translate("Dialog", "\""))
         self.label_15.setText(_translate("Dialog", "\""))
+        self.pushButton_load_map.setText(_translate("Dialog", "Загрузить"))
 
 if __name__ == "__main__":
     import sys
