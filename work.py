@@ -80,6 +80,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                     QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
             else:
                 QMessageBox.warning(self, "Ошибка", "Файл не существует.")
+        self.pushButton_clean_values.setEnabled(False)
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
@@ -94,6 +95,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.canvas.mpl_connect('button_press_event', self.onclick_point2)
 
     def onclick_point1(self, event):
+        self.pushButton_set_point_on_map.setEnabled(False)
+        self.pushButton_clean_values.setEnabled(True)
         """Обработчик клика для первой точки"""
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
@@ -113,6 +116,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point1))
 
     def onclick_point2(self, event):
+        self.pushButton_set_point_on_map.setEnabled(False)
+        self.setEnabled(True)
         """Обработчик клика для второй точки"""
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
@@ -132,6 +137,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point2))
 
     def show_profile(self):
+        self.pushButton_clean_values.setEnabled(True)
         """Отображение профиля местности между двумя выбранными точками."""
         plt.close('all')
 
@@ -276,10 +282,14 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.plot_elevation_map()  # Повторно отображаем карту высот
 
+        self.pushButton_set_point_on_map.setEnabled(True)
+
         self.pushButton_set_map_point1.setEnabled(True)
         self.pushButton_set_map_point2.setEnabled(True)
 
     def set_points(self):
+        self.pushButton_set_map_point1.setEnabled(False)
+        self.pushButton_set_map_point2.setEnabled(False)
         """Устанавливает точки на карте на основе значений из спин боксов"""
         # Получение значений для первой точки
         lat_deg1 = int(self.spinBox_point1_latitude_gradus.value())
