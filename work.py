@@ -53,6 +53,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Отрисовка карты
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
 
+        self.pushButton_show_graphic.clicked.connect(self.show_prof)
+
         self.pushButton_clean_values.clicked.connect(self.clear_values)
 
         self.pushButton_set_map_point1.clicked.connect(self.prepare_point1_selection)
@@ -60,29 +62,44 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
 
+        #Устанавливаем блокировку на кнопки до момента загрузки карты в программе
         self.pushButton_set_point_on_map.setEnabled(False)
+        self.pushButton_set_map_point1.setEnabled(False)
+        self.pushButton_set_map_point2.setEnabled(False)
+        self.pushButton_input_values_height_base_station.setEnabled(False)
+        self.pushButton_show_graphic.setEnabled(False)
+        self.pushButton_clean_values.setEnabled(False)
 
 
 
     def open_file_dialog(self):
-        # Open the file dialog
-        options = QFileDialog.Options()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
-                                                   "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
-                                                   options=options)
-        # Check if a file was selected
-        if self.file_path:
-            # Check if the file exists
-            if os.path.isfile(self.file_path):
-                # Check if the file extension is .hgt
-                if self.file_path.endswith('.hgt'):
-                    self.plot_elevation_map()  # Call your method to plot the elevation map
+        if len(self.selected_points)>0:
+            QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений.")
+            self.pushButton_load_map.setEnabled(False)
+        else:
+            # Open the file dialog
+            options = QFileDialog.Options()
+            self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
+                                                       "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
+                                                       options=options)
+            # Check if a file was selected
+            if self.file_path:
+                # Check if the file exists
+                if os.path.isfile(self.file_path):
+                    # Check if the file extension is .hgt
+                    if self.file_path.endswith('.hgt'):
+                        self.plot_elevation_map()  # Call your method to plot the elevation map
+                    else:
+                        QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
                 else:
-                    QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
-            else:
-                QMessageBox.warning(self, "Ошибка", "Файл не существует.")
-        self.pushButton_clean_values.setEnabled(False)
-        self.pushButton_set_point_on_map.setEnabled(True)
+                    QMessageBox.warning(self, "Ошибка", "Файл не существует.")
+            self.pushButton_clean_values.setEnabled(False)
+            self.pushButton_set_point_on_map.setEnabled(True)
+            self.pushButton_set_map_point1.setEnabled(True)
+            self.pushButton_set_map_point2.setEnabled(True)
+            self.pushButton_input_values_height_base_station.setEnabled(True)
+            self.pushButton_show_graphic.setEnabled(True)
+            self.pushButton_clean_values.setEnabled(True)
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
@@ -99,6 +116,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
     def onclick_point1(self, event):
         self.pushButton_set_point_on_map.setEnabled(False)
         self.pushButton_clean_values.setEnabled(True)
+        self.pushButton_load_map.setEnabled(False)
         """Обработчик клика для первой точки"""
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
@@ -119,7 +137,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def onclick_point2(self, event):
         self.pushButton_set_point_on_map.setEnabled(False)
-        self.setEnabled(True)
+        self.pushButton_clean_values.setEnabled(True)
+        self.pushButton_load_map.setEnabled(False)
         """Обработчик клика для второй точки"""
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
@@ -140,6 +159,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def show_profile(self):
         self.pushButton_clean_values.setEnabled(True)
+        self.pushButton_load_map.setEnabled(True)
         """Отображение профиля местности между двумя выбранными точками."""
         plt.close('all')
 
@@ -273,11 +293,12 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         # Обновление холста
         self.canvas.draw()
-        self.pushButton_show_graphic.clicked.connect(self.show_prof)
 
     def show_prof(self):
         if len(self.selected_points)==2:
             self.show_profile()
+        else:
+            QMessageBox.warning(self, "Ошибка ввода", "Должны быть введены ровно 2 точки.")
     def clear_values(self):
         """Очистка выбранных точек и обновление карты."""
         self.selected_points.clear()  # Очищаем список выбранных точек
