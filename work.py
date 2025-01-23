@@ -328,7 +328,7 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     form = Form_main()
     palette = QPalette()
-    palette.setBrush(QPalette.Background, QBrush(QPixmap("picture.webp")))
+    palette.setBrush(QPalette.Background, QBrush(QPixmap("picture.jpg")))
     form.setPalette(palette)
     form.show()
     sys.exit(app.exec_())
