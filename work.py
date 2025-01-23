@@ -261,35 +261,66 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     def set_points(self):
         """Устанавливает точки на карте на основе значений из спин боксов"""
-        lat_deg = int(self.spinBox_point1_latitude_gradus.value())
-        lat_min = int(self.spinBox_point1_latitude_minutes.value())
-        lat_sec = int(self.spinBox_point1_latitude_seconds.value())
+        # Получение значений для первой точки
+        lat_deg1 = int(self.spinBox_point1_latitude_gradus.value())
+        lat_min1 = int(self.spinBox_point1_latitude_minutes.value())
+        lat_sec1 = int(self.spinBox_point1_latitude_seconds.value())
 
-        lon_deg = int(self.spinBox_point1_longtitude_gradus.value())
-        lon_min = int(self.spinBox_point1_longtitude_minutes.value())
-        lon_sec = int(self.spinBox_point1_longtitude_seconds.value())
+        lon_deg1 = int(self.spinBox_point1_longtitude_gradus.value())
+        lon_min1 = int(self.spinBox_point1_longtitude_minutes.value())
+        lon_sec1 = int(self.spinBox_point1_longtitude_seconds.value())
 
-        # Преобразование в десятичный формат
-        latitude = lat_deg + (lat_min / 60) + (lat_sec / 3600)
-        longitude = lon_deg + (lon_min / 60) + (lon_sec / 3600)
+        # Преобразование в десятичный формат для первой точки
+        latitude1 = lat_deg1 + (lat_min1 / 60) + (lat_sec1 / 3600)
+        longitude1 = lon_deg1 + (lon_min1 / 60) + (lon_sec1 / 3600)
 
-        # Сохраняем координаты с округлением
-        self.selected_points.append((round(latitude, 4), round(longitude, 4)))
+        # Сохраняем координаты первой точки с округлением
+        self.selected_points.append((round(latitude1, 4), round(longitude1, 4)))
 
-        # Преобразование координат в индексы для отображения на графике
-        lon_index = int((longitude - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
-        lat_index = int((self.bounds.top - latitude) / (self.bounds.top - self.bounds.bottom) * self.height)
+        # Печать десятичных координат первой точки
+        print(f"Установленная точка 1: Широта: {round(latitude1, 4)}, Долгота: {round(longitude1, 4)}")
 
-        # Отмечаем точку на графике
-        x_data = lon_index
-        y_data = lat_index
+        # Преобразование координат первой точки в индексы для отображения на графике
+        lon_index1 = int((longitude1 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+        lat_index1 = int((self.bounds.top - latitude1) / (self.bounds.top - self.bounds.bottom) * self.height)
 
-        self.ax.plot(x_data, y_data, 'ro')
-        self.ax.text(x_data + 10, y_data + 10,
-                     f'Точка {len(self.selected_points)}: {self.selected_points[-1]}',
+        # Отмечаем первую точку на графике
+        self.ax.plot(lon_index1, lat_index1, 'ro')
+        self.ax.text(lon_index1 + 10, lat_index1 + 10,
+                     f'Точка 1: {self.selected_points[-1]}',
+                     color='white', fontsize=10)
+
+        # Получение значений для второй точки
+        lat_deg2 = int(self.spinBox_point2_latitude_gradus.value())
+        lat_min2 = int(self.spinBox_point2_latitude_minutes.value())
+        lat_sec2 = int(self.spinBox_point2_latitude_minutes_2.value())
+
+        lon_deg2 = int(self.spinBox_point2_longtitude_gradus.value())
+        lon_min2 = int(self.spinBox_point2_longtitude_minutes.value())
+        lon_sec2 = int(self.spinBox_point2_longtitude_seconds.value())
+
+        # Преобразование в десятичный формат для второй точки
+        latitude2 = lat_deg2 + (lat_min2 / 60) + (lat_sec2 / 3600)
+        longitude2 = lon_deg2 + (lon_min2 / 60) + (lon_sec2 / 3600)
+
+        # Сохраняем координаты второй точки с округлением
+        self.selected_points.append((round(latitude2, 4), round(longitude2, 4)))
+
+        # Печать десятичных координат второй точки
+        print(f"Установленная точка 2: Широта: {round(latitude2, 4)}, Долгота: {round(longitude2, 4)}")
+
+        # Преобразование координат второй точки в индексы для отображения на графике
+        lon_index2 = int((longitude2 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
+        lat_index2 = int((self.bounds.top - latitude2) / (self.bounds.top - self.bounds.bottom) * self.height)
+
+        # Отмечаем вторую точку на графике
+        self.ax.plot(lon_index2, lat_index2, 'ro')
+        self.ax.text(lon_index2 + 10, lat_index2 + 10,
+                     f'Точка 2: {self.selected_points[-1]}',
                      color='white', fontsize=10)
 
         # Обновление холста
+
         self.canvas.draw()
 
 
