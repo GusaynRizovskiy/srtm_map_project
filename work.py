@@ -10,8 +10,7 @@ from form_of_window import Form1
 import os
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
-# Укажите путь к вашему файлу .hgt
-hgt_file_path = 'N40E018.hgt/N40E018.hgt'
+
 def decimal_to_dms(degrees):
     """Преобразует десятичные градусы в градусы, минуты и секунды."""
     d = int(degrees)
