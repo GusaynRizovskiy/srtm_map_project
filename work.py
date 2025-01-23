@@ -75,7 +75,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
     def open_file_dialog(self):
         if len(self.selected_points)>0:
             QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений.")
-            self.pushButton_load_map.setEnabled(False)
         else:
             # Open the file dialog
             options = QFileDialog.Options()
