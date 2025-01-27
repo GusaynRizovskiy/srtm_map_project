@@ -102,7 +102,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_input_values_height_base_station.setEnabled(True)
             self.pushButton_show_graphic.setEnabled(True)
             self.pushButton_clean_values.setEnabled(True)
-            self.pushButton_input_values_height_base_station.setEnabled(True)
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
@@ -163,14 +162,20 @@ class Form_main(QtWidgets.QMainWindow,Form1):
     def add_height_of_base_station(self):
         # Считываем значение высоты для первой станции
         self.height_of_base_station_1 = self.spinBox_height_of_basestation_1.value()
-        # Проверяем значение на корректность
-        if self.height_of_base_station_1 > 40 or self.height_of_base_station_1 < 0:
-            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое, либо меньше нуля. Измените его!")
         # Считываем значение высоты для первой станции
         self.height_of_base_station_2 = self.spinBox_height_of_basestation_2.value()
         # Проверяем значение на корректность
-        if self.height_of_base_station_2 > 40 or self.height_of_base_station_2 < 0:
-            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое, либо меньше нуля. Измените его!")
+        if self.height_of_base_station_2 > 40 or self.height_of_base_station_1 > 40:
+            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое.Оно не должно превышать 40.Измените его!")
+            self.pushButton_input_values_height_base_station.setEnabled(True)
+            self.pushButton_show_graphic.setEnabled(False)
+            self.pushButton_clean_values.setEnabled(False)
+            self.height_of_base_station_1 = 0
+            self.height_of_base_station_2 = 0
+        else:
+            self.pushButton_input_values_height_base_station.setEnabled(False)
+            self.pushButton_show_graphic.setEnabled(True)
+            self.pushButton_clean_values.setEnabled(True)
 
     def show_profile(self):
         self.pushButton_clean_values.setEnabled(True)
@@ -221,22 +226,27 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.set_xlabel('Расстояние (км)')
             profile_ax.set_ylabel('Высота (метры)')
 
-            # Генерация синусоидальной верхней границы эллипса
+            # Добавление прямых линий для высот базовых станций
+            profile_ax.plot([0, 0], [elevations[0], elevations[0] + self.height_of_base_station_1],
+                            color='red', linestyle='-', label='Высота базовой станции 1')
+            profile_ax.plot([distance_kilometers, distance_kilometers],
+                            [elevations[-1], elevations[-1] + self.height_of_base_station_2],
+                            color='red', linestyle='-', label='Высота базовой станции 2')
+
+            # Добавление зеленой линии между вершинами прямых линий
+            profile_ax.plot([0, distance_kilometers], [elevations[0] + self.height_of_base_station_1,
+                                                       elevations[-1] + self.height_of_base_station_2],
+                            color='green', linestyle='--', label='Линия между базовыми станциями')
+
+            # Генерация синусоидальной верхней границы эллипса относительно зеленой линии
+            linear_elevation_line = np.linspace(elevations[0] + self.height_of_base_station_1,
+                                                elevations[-1] + self.height_of_base_station_2, num_points)
             sinusoidal_variation = radius_fresnel_1st_zone_meters * np.sin(np.linspace(0, np.pi, num_points))
-
-            elevation_start = elevations[0]
-            elevation_end = elevations[-1]
-
-            linear_elevation_line = np.linspace(elevation_start, elevation_end, num_points)
             ellipse_y_upper = linear_elevation_line + sinusoidal_variation
 
             # Построение верхней границы эллипса
             profile_ax.plot(np.linspace(0, distance_kilometers, num_points), ellipse_y_upper,
                             color='yellow', linestyle='-', label='Верхняя граница зоны Френеля')
-
-            # Добавление прямой линии между точками
-            profile_ax.plot([0, distance_kilometers], [elevations[0], elevations[-1]],
-                            color='green', linestyle='--', label='Прямая линия')
 
             profile_ax.legend()
             profile_ax.grid(True)
@@ -324,6 +334,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
         self.pushButton_set_map_point1.setEnabled(True)
         self.pushButton_set_map_point2.setEnabled(True)
+
+        self.pushButton_input_values_height_base_station.setEnabled(True)
 
     def set_points(self):
         """
