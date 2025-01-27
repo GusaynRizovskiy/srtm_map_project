@@ -312,7 +312,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
     def set_points(self):
         self.pushButton_set_map_point1.setEnabled(False)
         self.pushButton_set_map_point2.setEnabled(False)
-        """Устанавливает точки на карте на основе значений из спин боксов"""
         # Получение значений для первой точки
         lat_deg1 = int(self.spinBox_point1_latitude_gradus.value())
         lat_min1 = int(self.spinBox_point1_latitude_minutes.value())
@@ -335,12 +334,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Преобразование координат первой точки в индексы для отображения на графике
         lon_index1 = int((longitude1 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
         lat_index1 = int((self.bounds.top - latitude1) / (self.bounds.top - self.bounds.bottom) * self.height)
-
-        # Отмечаем первую точку на графике
-        self.ax.plot(lon_index1, lat_index1, 'ro')
-        self.ax.text(lon_index1 + 10, lat_index1 + 10,
-                     f'Точка 1: {self.selected_points[-1]}',
-                     color='white', fontsize=10)
 
         # Получение значений для второй точки
         lat_deg2 = int(self.spinBox_point2_latitude_gradus.value())
@@ -365,15 +358,24 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         lon_index2 = int((longitude2 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
         lat_index2 = int((self.bounds.top - latitude2) / (self.bounds.top - self.bounds.bottom) * self.height)
 
-        # Отмечаем вторую точку на графике
-        self.ax.plot(lon_index2, lat_index2, 'ro')
-        self.ax.text(lon_index2 + 10, lat_index2 + 10,
-                     f'Точка 2: {self.selected_points[-1]}',
-                     color='white', fontsize=10)
+        # Проверка, находится ли точка внутри границ карты
+        if not (self.bounds.left <= longitude1 <= self.bounds.right and
+                self.bounds.bottom <= latitude1 <= self.bounds.top):
+            if not (self.bounds.left <= longitude2 <= self.bounds.right and
+                self.bounds.bottom <= latitude2 <= self.bounds.top):
+                    QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты выходят за пределы карты. Измените их!")
+        else:
+            # Отмечаем первую точку на графике
+            self.ax.plot(lon_index1, lat_index1, 'ro')
+            self.ax.text(lon_index1 + 10, lat_index1 + 10,
+                         f'Точка 1: {self.selected_points[-2]}',
+                         color='white', fontsize=10)
 
-        # Обновление холста
-
-        self.canvas.draw()
+            # Отмечаем вторую точку на графике
+            self.ax.plot(lon_index2, lat_index2, 'ro')
+            self.ax.text(lon_index2 + 10, lat_index2 + 10,
+                         f'Точка 2: {self.selected_points[-1]}',
+                         color='white', fontsize=10)
 
 
 if __name__ == '__main__':
