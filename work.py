@@ -310,61 +310,86 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.setEnabled(True)
 
     def set_points(self):
+        """
+        Метод предназначен для установки на отображаемой карте двух точек в соответствии
+        с введнными пользователем координатами. Метод считывает значения из объектов
+        spinBox, преобразует их в пиксельные координаты, выполняя проверку выхода за границы
+        карты, после чего отображает на карте. Если координаты выходят за границы, то в этом
+        случае выдается предупреждение
+        """
+
+        #Блокируем кнопки установки точек на карте с помощью мыши(необходимо для того чтобы нельзя было
+        #поставить координаты одной точки, а вторую установить нажатием мыши)
         self.pushButton_set_map_point1.setEnabled(False)
         self.pushButton_set_map_point2.setEnabled(False)
-        # Получение значений для первой точки
+        # Получение значений для первой точки(географические координаты)(значения широты)
         lat_deg1 = int(self.spinBox_point1_latitude_gradus.value())
         lat_min1 = int(self.spinBox_point1_latitude_minutes.value())
         lat_sec1 = int(self.spinBox_point1_latitude_seconds.value())
-
+        # Получение значений для первой точки(географические координаты)(значения долготы)
         lon_deg1 = int(self.spinBox_point1_longtitude_gradus.value())
         lon_min1 = int(self.spinBox_point1_longtitude_minutes.value())
         lon_sec1 = int(self.spinBox_point1_longtitude_seconds.value())
 
-        # Преобразование в десятичный формат для первой точки
+        # Преобразование в десятичный формат для первой точки(преобразуются в десятичные градусы)
+        # Десятичные градусы упрощают вычисления и с ними работают многие библиотеки(также их удобно переводить в другие системы счисления)
+        # Поэтому мы и выполняем перевод в десятичные градусы)
         latitude1 = lat_deg1 + (lat_min1 / 60) + (lat_sec1 / 3600)
         longitude1 = lon_deg1 + (lon_min1 / 60) + (lon_sec1 / 3600)
 
-        # Сохраняем координаты первой точки с округлением
+        # Сохраняем координаты первой точки с округлением(координаты первой точки сохраняются в массив)
         self.selected_points.append((round(latitude1, 4), round(longitude1, 4)))
 
-        # Печать десятичных координат первой точки
-        print(f"Установленная точка 1: Широта: {round(latitude1, 4)}, Долгота: {round(longitude1, 4)}")
-
         # Преобразование координат первой точки в индексы для отображения на графике
+        # Благодаря пиксельным координатам можно отобразить точку на карте
         lon_index1 = int((longitude1 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
         lat_index1 = int((self.bounds.top - latitude1) / (self.bounds.top - self.bounds.bottom) * self.height)
 
-        # Получение значений для второй точки
+        # Получение значений для второй точки(географические координаты)(значения широты)
         lat_deg2 = int(self.spinBox_point2_latitude_gradus.value())
         lat_min2 = int(self.spinBox_point2_latitude_minutes.value())
         lat_sec2 = int(self.spinBox_point2_latitude_seconds.value())
-
+        # Получение значений для второй точки(географические координаты)(значения долготы)
         lon_deg2 = int(self.spinBox_point2_longtitude_gradus.value())
         lon_min2 = int(self.spinBox_point2_longtitude_minutes.value())
         lon_sec2 = int(self.spinBox_point2_longtitude_seconds.value())
 
-        # Преобразование в десятичный формат для второй точки
+        # Преобразование в десятичный формат для второй точки(преобразуются в десятичные градусы)
+        # Десятичные градусы упрощают вычисления и с ними работают многие библиотеки(также их удобно переводить в другие системы счисления)
+        # Поэтому мы и выполняем перевод в десятичные градусы)
         latitude2 = lat_deg2 + (lat_min2 / 60) + (lat_sec2 / 3600)
         longitude2 = lon_deg2 + (lon_min2 / 60) + (lon_sec2 / 3600)
 
-        # Сохраняем координаты второй точки с округлением
+        # Сохраняем координаты второй точки с округлением(координаты второй точки сохраняются в массив)
         self.selected_points.append((round(latitude2, 4), round(longitude2, 4)))
 
         # Печать десятичных координат второй точки
         print(f"Установленная точка 2: Широта: {round(latitude2, 4)}, Долгота: {round(longitude2, 4)}")
 
         # Преобразование координат второй точки в индексы для отображения на графике
+        # Благодаря пиксельным координатам можно отобразить точку на карте
         lon_index2 = int((longitude2 - self.bounds.left) / (self.bounds.right - self.bounds.left) * self.width)
         lat_index2 = int((self.bounds.top - latitude2) / (self.bounds.top - self.bounds.bottom) * self.height)
 
         # Проверка, находится ли точка внутри границ карты
+        # В первом случае для первой точки
         if not (self.bounds.left <= longitude1 <= self.bounds.right and
                 self.bounds.bottom <= latitude1 <= self.bounds.top):
             if not (self.bounds.left <= longitude2 <= self.bounds.right and
                 self.bounds.bottom <= latitude2 <= self.bounds.top):
                     QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты выходят за пределы карты. Измените их!")
+            else:
+                QMessageBox.warning(self, "ВНИМАНИЕ","Введенные вами координаты первой точки выходят за пределы карты. Измените их!")
+        # Во втором случае для второй точки
+        elif not (self.bounds.left <= longitude2 <= self.bounds.right and
+                self.bounds.bottom <= latitude2 <= self.bounds.top):
+            if not (self.bounds.left <= longitude1 <= self.bounds.right and
+                    self.bounds.bottom <= latitude1 <= self.bounds.top):
+                    QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты выходят за пределы карты. Измените их!")
+            else:
+                QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты второй точки выходят за пределы карты. Измените их!")
         else:
+            # Если все координаты в пределах карты, то производим их отображение в виде точек.
             # Отмечаем первую точку на графике
             self.ax.plot(lon_index1, lat_index1, 'ro')
             self.ax.text(lon_index1 + 10, lat_index1 + 10,
@@ -376,6 +401,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.ax.text(lon_index2 + 10, lat_index2 + 10,
                          f'Точка 2: {self.selected_points[-1]}',
                          color='white', fontsize=10)
+            #Функция, которая производит обновление графика, чтобы отобразить точки
+            self.canvas.draw()
 
 
 if __name__ == '__main__':
