@@ -50,6 +50,9 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Настройка subplot
         self.ax = self.canvas.figure.add_subplot(111)
 
+        self.height_of_base_station_1 = 0
+        self.height_of_base_station_2 = 0
+
         # Отрисовка карты
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
 
@@ -329,6 +332,9 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.selected_points.clear()  # Очищаем список выбранных точек
 
         self.plot_elevation_map()  # Повторно отображаем карту высот
+
+        self.height_of_base_station_1 = 0
+        self.height_of_base_station_2 = 0
 
         self.pushButton_set_point_on_map.setEnabled(True)
 
