@@ -251,6 +251,24 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.plot(np.linspace(0, distance_kilometers, num_points), ellipse_y_upper,
                             color='yellow', linestyle='-', label='Верхняя граница зоны Френеля')
 
+            # Находим индекс максимального значения синусоиды
+            args = np.linspace(0, np.pi, num_points)
+            max_index = np.argmin(np.abs(args - np.pi / 2))
+
+            # Координаты максимального значения синусоиды
+            x = np.linspace(0, distance_kilometers, num_points)
+            max_x = x[max_index]
+            max_y = ellipse_y_upper[max_index]
+
+            # Центр зеленой линии
+            center_x = distance_kilometers / 2
+            center_y = (elevations[0] + self.height_of_base_station_1 + elevations[
+                -1] + self.height_of_base_station_2) / 2
+
+            # Соединение максимального значения синусоиды с центром зеленой линии
+            profile_ax.plot([max_x, center_x], [max_y, center_y], color='black', linestyle='--',
+                            label='Соединение с центром')
+
             profile_ax.legend()
             profile_ax.grid(True)
 
