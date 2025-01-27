@@ -53,6 +53,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Отрисовка карты
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
 
+        self.pushButton_input_values_height_base_station.clicked.connect(self.add_height_of_base_station)
+
         self.pushButton_show_graphic.clicked.connect(self.show_prof)
 
         self.pushButton_clean_values.clicked.connect(self.clear_values)
@@ -69,6 +71,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_input_values_height_base_station.setEnabled(False)
         self.pushButton_show_graphic.setEnabled(False)
         self.pushButton_clean_values.setEnabled(False)
+        self.pushButton_input_values_height_base_station.setEnabled(False)
 
 
 
@@ -99,6 +102,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_input_values_height_base_station.setEnabled(True)
             self.pushButton_show_graphic.setEnabled(True)
             self.pushButton_clean_values.setEnabled(True)
+            self.pushButton_input_values_height_base_station.setEnabled(True)
 
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
@@ -155,6 +159,18 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
             self.canvas.draw()
             self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point2))
+
+    def add_height_of_base_station(self):
+        # Считываем значение высоты для первой станции
+        self.height_of_base_station_1 = self.spinBox_height_of_basestation_1.value()
+        # Проверяем значение на корректность
+        if self.height_of_base_station_1 > 40 or self.height_of_base_station_1 < 0:
+            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое, либо меньше нуля. Измените его!")
+        # Считываем значение высоты для первой станции
+        self.height_of_base_station_2 = self.spinBox_height_of_basestation_2.value()
+        # Проверяем значение на корректность
+        if self.height_of_base_station_2 > 40 or self.height_of_base_station_2 < 0:
+            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое, либо меньше нуля. Измените его!")
 
     def show_profile(self):
         self.pushButton_clean_values.setEnabled(True)
