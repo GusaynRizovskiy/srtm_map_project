@@ -18,6 +18,8 @@ def decimal_to_dms(degrees):
     s = (degrees - d - m / 60) * 3600
     return d, m, round(s, 2)  # Округляем секунды до двух знаков после запятой
 
+#Данный метод учитывает кривизну земной поверхности, что позволяет рассчитать геодезическое расстояние
+#между двумя точками, что является более точным.
 def haversine(coord1, coord2):
     R = 6371e3  # Радиус Земли в метрах
     lat1, lon1 = np.radians(coord1)
@@ -53,18 +55,19 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.height_of_base_station_1 = 0
         self.height_of_base_station_2 = 0
 
-        # Отрисовка карты
+        # Связываем нажатие кнопки с методом open_file_dialog для дальнейшей работы
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
-
+        # Связываем нажатие кнопки ввода высот базовых станций с методом обработки
         self.pushButton_input_values_height_base_station.clicked.connect(self.add_height_of_base_station)
-
+        # Связываем нажатие кнопки отображения профиля высот с соответствующим методом
         self.pushButton_show_graphic.clicked.connect(self.show_prof)
-
+        # Связываем нажатие кнопки очистки значений с соответствующим методом
         self.pushButton_clean_values.clicked.connect(self.clear_values)
-
+        # Связываем нажатие кнопки установки на карте точки 1 с соответствующим методом
         self.pushButton_set_map_point1.clicked.connect(self.prepare_point1_selection)
+        # Связываем нажатие кнопки установки на карте точки 2 с соответствующим методом
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
-
+        # Связываем нажатие кнопки ручной установки на карте точек  с соответствующим методом
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
 
         #Устанавливаем блокировку на кнопки до момента загрузки карты в программе
@@ -77,7 +80,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_input_values_height_base_station.setEnabled(False)
 
 
-
+    # Метод предоставляет возможность выбора необходимой карты формата .hgt
     def open_file_dialog(self):
         if len(self.selected_points)>0:
             QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений.")
@@ -87,13 +90,13 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
                                                        "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
                                                        options=options)
-            # Check if a file was selected
+            # Проверяем, что файл выбран
             if self.file_path:
-                # Check if the file exists
+                # Проверяем, существует ли файл
                 if os.path.isfile(self.file_path):
-                    # Check if the file extension is .hgt
+                    # Проверяем, является ли файл формата .hgt
                     if self.file_path.endswith('.hgt'):
-                        self.plot_elevation_map()  # Call your method to plot the elevation map
+                        self.plot_elevation_map()  # Если все правильно, то запускаем метод отображения карты
                     else:
                         QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
                 else:
@@ -105,23 +108,32 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_input_values_height_base_station.setEnabled(True)
             self.pushButton_show_graphic.setEnabled(True)
             self.pushButton_clean_values.setEnabled(True)
+            #Устанавливаем блокировку на кнопку постановки второй точки, для корректной работы программы.
+            self.pushButton_set_map_point2.setEnabled(False)
 
+    # Метод проверяет, что выбрана первая точка(нужно чтобы ограничить число выбираемых точек)
     def prepare_point1_selection(self):
         """Подготовка к выбору первой точки"""
         if len(self.selected_points) == 0:
             self.pushButton_set_map_point1.setEnabled(False)
             self.canvas.mpl_connect('button_press_event', self.onclick_point1)
 
+    # Метод проверяет, что выбрана вторая точка(нужно чтобы ограничить число выбираемых точек)
     def prepare_point2_selection(self):
         """Подготовка к выбору второй точки"""
         if len(self.selected_points) == 1:
             self.pushButton_set_map_point2.setEnabled(False)
             self.canvas.mpl_connect('button_press_event', self.onclick_point2)
 
+    # Метод установки на карте точке номер 1
     def onclick_point1(self, event):
+        #Ставим блокировку на кнопку ввода высот, после нажатия кнопки установки первой станции.
+        self.pushButton_input_values_height_base_station.setEnabled(False)
         self.pushButton_set_point_on_map.setEnabled(False)
         self.pushButton_clean_values.setEnabled(True)
         self.pushButton_load_map.setEnabled(False)
+        #Разблокируем кнопку установки точки номер 2.
+        self.pushButton_set_map_point2.setEnabled(True)
         """Обработчик клика для первой точки"""
         if event.xdata is not None and event.ydata is not None:
             lon_index = int(event.xdata)
@@ -140,6 +152,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.canvas.draw()
             self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point1))
 
+    # Метод установки на карте точке номер 2
     def onclick_point2(self, event):
         self.pushButton_set_point_on_map.setEnabled(False)
         self.pushButton_clean_values.setEnabled(True)
@@ -162,6 +175,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.canvas.draw()
             self.canvas.mpl_disconnect(self.canvas.mpl_connect('button_press_event', self.onclick_point2))
 
+    # Метод считывает значения высот базовых станция и проверяет их на корректность
     def add_height_of_base_station(self):
         # Считываем значение высоты для первой станции
         self.height_of_base_station_1 = self.spinBox_height_of_basestation_1.value()
@@ -180,6 +194,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_show_graphic.setEnabled(True)
             self.pushButton_clean_values.setEnabled(True)
 
+    # Метод отображения профиля местности между двумя точками.
     def show_profile(self):
         self.pushButton_clean_values.setEnabled(True)
         self.pushButton_load_map.setEnabled(True)
@@ -275,6 +290,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             plt.tight_layout()
             plt.show()
 
+    # Метод отрисовки выбранной карты
     def plot_elevation_map(self):
         # Укажите путь к вашему файлу .hgt
         with rasterio.open(self.file_path) as src:
@@ -340,11 +356,13 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Обновление холста
         self.canvas.draw()
 
+    # Метод сверяет, что выбраны ровно две точки, чтобы отобразить профиль местности, иначе ошибка
     def show_prof(self):
         if len(self.selected_points)==2:
             self.show_profile()
         else:
             QMessageBox.warning(self, "Ошибка ввода", "Должны быть введены ровно 2 точки.")
+    # Метод очистки значений
     def clear_values(self):
         """Очистка выбранных точек и обновление карты."""
         self.selected_points.clear()  # Очищаем список выбранных точек
@@ -360,7 +378,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.setEnabled(True)
 
         self.pushButton_input_values_height_base_station.setEnabled(True)
-
+    # Метод ручной установки точек
     def set_points(self):
         """
         Метод предназначен для установки на отображаемой карте двух точек в соответствии
