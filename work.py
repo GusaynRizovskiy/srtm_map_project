@@ -241,9 +241,9 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             # Складываем высоты рельефа с кривизной Земли
             elevations_with_curvature = elevations + y_curvature
 
-            # Построение профиля без учёта кривизны Земли
+            # Построение профиля без учёта кривизны Земли (менее яркий и пунктирный)
             profile_ax.plot(x_kilometers, elevations,
-                            color='blue', label='Профиль рельефа (без кривизны Земли)')
+                            color='blue', linestyle='--', alpha=0.7, label='Профиль рельефа (без кривизны Земли)')
 
             # Построение профиля с учётом кривизны Земли
             profile_ax.plot(x_kilometers, elevations_with_curvature,
