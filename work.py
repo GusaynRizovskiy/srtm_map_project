@@ -231,10 +231,32 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
 
             # Построение профиля местности
-            profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations,
-                            color='blue', label='Профиль рельефа')
+            x_kilometers = np.linspace(0, distance_kilometers, num_points)
 
-            profile_ax.set_title('Профиль местности')
+            # Рассчитываем кривизну Земли для каждой точки
+            R = 6371000  # Радиус Земли в метрах
+            x_meters = np.linspace(-distance_meters / 2, distance_meters / 2, num_points)  # Расстояние от центра
+            y_curvature = (x_meters ** 2) / (2 * R)  # Формула для кривизны Земли
+
+            # Складываем высоты рельефа с кривизной Земли
+            elevations_with_curvature = elevations + y_curvature
+
+            # Построение профиля без учёта кривизны Земли
+            profile_ax.plot(x_kilometers, elevations,
+                            color='blue', label='Профиль рельефа (без кривизны Земли)')
+
+            # Построение профиля с учётом кривизны Земли
+            profile_ax.plot(x_kilometers, elevations_with_curvature,
+                            color='brown', linestyle='-', label='Профиль рельефа (с кривизной Земли)')
+
+            # Построение синусоиды кривизны Земли сверху от горизонтальной линии
+            y_curvature_shifted = y_curvature - y_curvature[0]  # Начинаем с 0
+            y_curvature_shifted = -y_curvature_shifted  # Инвертируем, чтобы кривизна была направлена вверх
+
+            profile_ax.plot(x_kilometers, y_curvature_shifted,
+                            color='purple', linestyle='--', label='Кривизна Земли (синусоида)')
+
+            profile_ax.set_title('Профиль местности с учётом и без учёта кривизны Земли')
             profile_ax.set_xlabel('Расстояние (км)')
             profile_ax.set_ylabel('Высота (метры)')
 
@@ -259,21 +281,6 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             # Проведение горизонтальной линии на уровне высоты 0, соединяющей две вертикальные линии
             profile_ax.plot([0, distance_kilometers], [0, 0], color='gray', linestyle='-',
                             label='Горизонтальная линия на уровне 0')
-
-            # Построение верхней части синусоиды, учитывающей кривизну Земли
-            R = 6371000  # Радиус Земли в метрах
-            x = np.linspace(-distance_meters / 2, distance_meters / 2, num_points)  # Расстояние от центра
-            y_curvature = (x ** 2) / (2 * R)  # Формула для кривизны Земли
-
-            # Сдвигаем кривизну вверх относительно горизонтальной линии
-            y_curvature_shifted = y_curvature - y_curvature[0]  # Начинаем с 0
-            y_curvature_shifted = -y_curvature_shifted  # Инвертируем, чтобы кривизна была направлена вверх
-
-            # Преобразуем x в километры для отображения на графике
-            x_kilometers = np.linspace(0, distance_kilometers, num_points)
-
-            # Построение верхней части синусоиды
-            profile_ax.plot(x_kilometers, y_curvature_shifted, color='purple', linestyle='-', label='Кривизна Земли')
 
             profile_ax.legend()
             profile_ax.grid(True)
