@@ -116,6 +116,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         """Подготовка к выбору первой точки"""
         if len(self.selected_points) == 0:
             self.pushButton_set_map_point1.setEnabled(False)
+            self.pushButton_set_map_point2.setEnabled(True)
             self.canvas.mpl_connect('button_press_event', self.onclick_point1)
 
     # Метод проверяет, что выбрана вторая точка(нужно чтобы ограничить число выбираемых точек)
@@ -375,9 +376,10 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_point_on_map.setEnabled(True)
 
         self.pushButton_set_map_point1.setEnabled(True)
-        self.pushButton_set_map_point2.setEnabled(True)
+        self.pushButton_set_map_point2.setEnabled(False)
 
         self.pushButton_input_values_height_base_station.setEnabled(True)
+
     # Метод ручной установки точек
     def set_points(self):
         """
