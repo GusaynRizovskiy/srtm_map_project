@@ -224,19 +224,11 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                 y_index = int((self.bounds.top - lat) / (self.bounds.top - self.bounds.bottom) * self.height)
                 elevations.append(self.elevation_data[y_index, x_index])
 
-            # Динамический расчет радиуса зоны Френеля
+            # Расчет расстояния между точками
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
-            frequency = 2.4  # Пример частоты в ГГц (WiFi)
-
-            # Формула расчета радиуса зоны Френеля
-            radius_fresnel_1st_zone_meters = 17.31 * np.sqrt(
-                (distance_meters / 1000) / (4 * frequency)
-            )
-
-            print(f"Радиус первой зоны Френеля: {radius_fresnel_1st_zone_meters:.2f} метров")
+            distance_kilometers = distance_meters / 1000.0
 
             profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
-            distance_kilometers = distance_meters / 1000.0
 
             # Построение профиля местности
             profile_ax.plot(np.linspace(0, distance_kilometers, num_points), elevations,
@@ -267,6 +259,21 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             # Проведение горизонтальной линии на уровне высоты 0, соединяющей две вертикальные линии
             profile_ax.plot([0, distance_kilometers], [0, 0], color='gray', linestyle='-',
                             label='Горизонтальная линия на уровне 0')
+
+            # Построение верхней части синусоиды, учитывающей кривизну Земли
+            R = 6371000  # Радиус Земли в метрах
+            x = np.linspace(-distance_meters / 2, distance_meters / 2, num_points)  # Расстояние от центра
+            y_curvature = (x ** 2) / (2 * R)  # Формула для кривизны Земли
+
+            # Сдвигаем кривизну вверх относительно горизонтальной линии
+            y_curvature_shifted = y_curvature - y_curvature[0]  # Начинаем с 0
+            y_curvature_shifted = -y_curvature_shifted  # Инвертируем, чтобы кривизна была направлена вверх
+
+            # Преобразуем x в километры для отображения на графике
+            x_kilometers = np.linspace(0, distance_kilometers, num_points)
+
+            # Построение верхней части синусоиды
+            profile_ax.plot(x_kilometers, y_curvature_shifted, color='purple', linestyle='-', label='Кривизна Земли')
 
             profile_ax.legend()
             profile_ax.grid(True)
