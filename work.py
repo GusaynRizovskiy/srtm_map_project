@@ -448,12 +448,12 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                 self.bounds.bottom <= latitude2 <= self.bounds.top):
                     QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты выходят за пределы карты. Измените их!")
                     self.pushButton_set_map_point1.setEnabled(True)
-                    self.pushButton_set_map_point2.setEnabled(True)
+                    self.pushButton_set_map_point2.setEnabled(False)
                     self.selected_points = []
             else:
                 QMessageBox.warning(self, "ВНИМАНИЕ","Введенные вами координаты первой точки выходят за пределы карты. Измените их!")
                 self.pushButton_set_map_point1.setEnabled(True)
-                self.pushButton_set_map_point2.setEnabled(True)
+                self.pushButton_set_map_point2.setEnabled(False)
                 self.selected_points = []
         # Во втором случае для второй точки
         elif not (self.bounds.left <= longitude2 <= self.bounds.right and
@@ -462,12 +462,12 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                     self.bounds.bottom <= latitude1 <= self.bounds.top):
                     QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты выходят за пределы карты. Измените их!")
                     self.pushButton_set_map_point1.setEnabled(True)
-                    self.pushButton_set_map_point2.setEnabled(True)
+                    self.pushButton_set_map_point2.setEnabled(False)
                     self.selected_points = []
             else:
                 QMessageBox.warning(self, "ВНИМАНИЕ", "Введенные вами координаты второй точки выходят за пределы карты. Измените их!")
                 self.pushButton_set_map_point1.setEnabled(True)
-                self.pushButton_set_map_point2.setEnabled(True)
+                self.pushButton_set_map_point2.setEnabled(False)
                 self.selected_points = []
         else:
             # Если все координаты в пределах карты, то производим их отображение в виде точек.
