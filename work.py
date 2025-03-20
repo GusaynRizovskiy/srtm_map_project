@@ -249,13 +249,21 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.plot(x_kilometers, elevations_with_curvature,
                             color='brown', linestyle='-', label='Профиль рельефа (с кривизной Земли)')
 
-            # Построение инвертированной кривизны Земли (визуализация поверхности Земли)
-            profile_ax.plot(x_kilometers, y_curvature,
+            # Построение кривизны Земли (визуализация поверхности Земли)
+            profile_ax.plot(x_kilometers, y_curvature,  # Используем y_curvature вместо -y_curvature
                             color='purple', linestyle='--', label='Кривизна Земли (поверхность)')
 
-            profile_ax.set_title('Профиль местности с учётом и без учёта кривизны Земли')
-            profile_ax.set_xlabel('Расстояние (км)')
-            profile_ax.set_ylabel('Высота (метры)')
+            # Находим максимальное значение кривизны
+            max_curvature = np.max(y_curvature)
+            max_curvature_index = np.argmax(y_curvature)
+            max_curvature_x = x_kilometers[max_curvature_index]
+
+            # Отображаем максимальное значение кривизны на графике
+            profile_ax.annotate(f'Макс. кривизна: {max_curvature:.2f} м',
+                                xy=(max_curvature_x, max_curvature),
+                                xytext=(max_curvature_x, max_curvature + 10),
+                                arrowprops=dict(facecolor='black', shrink=0.05),
+                                fontsize=10, color='black')
 
             # Добавление прямых линий для высот базовых станций
             profile_ax.plot([0, 0], [elevations[0], elevations[0] + self.height_of_base_station_1],
@@ -268,6 +276,16 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.plot([0, distance_kilometers], [elevations[0] + self.height_of_base_station_1,
                                                        elevations[-1] + self.height_of_base_station_2],
                             color='green', linestyle='--', label='Линия между базовыми станциями')
+
+            # Отображение расстояния между точками (длина зеленой линии)
+            mid_x = distance_kilometers / 2  # Середина профиля по оси X
+            mid_y = (elevations[0] + self.height_of_base_station_1 + elevations[
+                -1] + self.height_of_base_station_2) / 2  # Середина по оси Y
+            profile_ax.annotate(f'Расстояние: {distance_kilometers:.2f} км',
+                                xy=(mid_x, mid_y),
+                                xytext=(mid_x, mid_y + 20),  # Смещение текста выше середины
+                                fontsize=10, color='green',
+                                bbox=dict(facecolor='white', alpha=0.8, edgecolor='green'))
 
             # Проведение вертикальных линий из точек 1 и 2 до высоты 0
             profile_ax.plot([0, 0], [0, elevations[0]], color='black', linestyle=':',
