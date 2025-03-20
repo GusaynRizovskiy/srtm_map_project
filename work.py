@@ -390,7 +390,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Добавление цветовой шкалы только если она еще не добавлена
         if self.colorbar is None:
             self.colorbar = self.canvas.figure.colorbar(cax, ax=self.ax, label='Elevation (meters)')
-
+        self.colorbar.update_normal(cax)
         # Установка заголовка и подписей осей
         self.ax.set_title('Digital Elevation Model')
         self.ax.set_xlabel('Longitude Index')
