@@ -249,12 +249,9 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.plot(x_kilometers, elevations_with_curvature,
                             color='brown', linestyle='-', label='Профиль рельефа (с кривизной Земли)')
 
-            # Построение синусоиды кривизны Земли сверху от горизонтальной линии
-            y_curvature_shifted = y_curvature - y_curvature[0]  # Начинаем с 0
-            y_curvature_shifted = -y_curvature_shifted  # Инвертируем, чтобы кривизна была направлена вверх
-
-            profile_ax.plot(x_kilometers, y_curvature_shifted,
-                            color='purple', linestyle='--', label='Кривизна Земли (синусоида)')
+            # Построение инвертированной кривизны Земли (визуализация поверхности Земли)
+            profile_ax.plot(x_kilometers, y_curvature,
+                            color='purple', linestyle='--', label='Кривизна Земли (поверхность)')
 
             profile_ax.set_title('Профиль местности с учётом и без учёта кривизны Земли')
             profile_ax.set_xlabel('Расстояние (км)')
