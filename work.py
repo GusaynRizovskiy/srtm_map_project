@@ -318,6 +318,15 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             profile_ax.plot([0, distance_kilometers], [0, 0], color='gray', linestyle='-',
                             label='Горизонтальная линия на уровне 0')
 
+            # Добавление аннотации для максимального значения зоны Френеля
+            max_fresnel_x = distance_kilometers / 2  # Середина профиля
+            max_fresnel_y = ellipse_y_upper[num_points // 2]  # Максимальная высота эллипса
+            profile_ax.annotate(f'Макс. зона Френеля: {radius_fresnel_1st_zone_meters:.2f} м',
+                                xy=(max_fresnel_x, max_fresnel_y),
+                                xytext=(max_fresnel_x, max_fresnel_y + 10),
+                                arrowprops=dict(facecolor='black', shrink=0.05),
+                                fontsize=10, color='black')
+
             profile_ax.legend()
             profile_ax.grid(True)
 
