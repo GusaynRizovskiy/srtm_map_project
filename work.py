@@ -224,6 +224,23 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                 y_index = int((self.bounds.top - lat) / (self.bounds.top - self.bounds.bottom) * self.height)
                 elevations.append(self.elevation_data[y_index, x_index])
 
+            # Динамический расчет радиуса зоны Френеля
+            distance_meters = haversine(self.selected_points[0], self.selected_points[1])
+            frequency = 2.4  # Пример частоты в ГГц (WiFi)
+
+            # Формула расчета радиуса зоны Френеля
+            radius_fresnel_1st_zone_meters = 17.31 * np.sqrt(
+                (distance_meters / 1000) / (4 * frequency)
+            )
+
+            print(f"Радиус первой зоны Френеля: {radius_fresnel_1st_zone_meters:.2f} метров")
+
+            # Генерация синусоидальной верхней границы эллипса относительно зеленой линии
+            linear_elevation_line = np.linspace(elevations[0] + self.height_of_base_station_1,
+                                                elevations[-1] + self.height_of_base_station_2, num_points)
+            sinusoidal_variation = radius_fresnel_1st_zone_meters * np.sin(np.linspace(0, np.pi, num_points))
+            ellipse_y_upper = linear_elevation_line + sinusoidal_variation
+
             # Расчет расстояния между точками
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
             distance_kilometers = distance_meters / 1000.0
@@ -252,6 +269,10 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             # Построение кривизны Земли (визуализация поверхности Земли)
             profile_ax.plot(x_kilometers, y_curvature,  # Используем y_curvature вместо -y_curvature
                             color='purple', linestyle='--', label='Кривизна Земли (поверхность)')
+
+            # Построение верхней границы эллипса
+            profile_ax.plot(np.linspace(0, distance_kilometers, num_points), ellipse_y_upper,
+                            color='yellow', linestyle='-', label='Верхняя граница зоны Френеля')
 
             # Находим максимальное значение кривизны
             max_curvature = np.max(y_curvature)
