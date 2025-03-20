@@ -236,7 +236,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             # Рассчитываем кривизну Земли для каждой точки
             R = 6371000  # Радиус Земли в метрах
             x_meters = np.linspace(-distance_meters / 2, distance_meters / 2, num_points)  # Расстояние от центра
-            y_curvature = (x_meters ** 2) / (2 * R)  # Формула для кривизны Земли
+            y_curvature = -(x_meters ** 2) / (2 * R) + (distance_meters ** 2) / (8 * R)  # Формула для кривизны Земли
 
             # Складываем высоты рельефа с кривизной Земли
             elevations_with_curvature = elevations + y_curvature
