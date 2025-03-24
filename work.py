@@ -52,8 +52,11 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Настройка subplot
         self.ax = self.canvas.figure.add_subplot(111)
 
+        # Установка значений высоты антенн базовых станций
         self.height_of_base_station_1 = 0
         self.height_of_base_station_2 = 0
+        # Установка значения частоты зоны френеля в ГГц
+        self.freequency_freenely = 2.4
 
         # Связываем нажатие кнопки с методом open_file_dialog для дальнейшей работы
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
@@ -69,6 +72,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
         # Связываем нажатие кнопки ручной установки на карте точек  с соответствующим методом
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
+        self.pushButton_input_freequency_zone_frenely.clicked.connect(self.set_freequency)
 
         #Устанавливаем блокировку на кнопки до момента загрузки карты в программе
         self.pushButton_set_point_on_map.setEnabled(False)
@@ -78,6 +82,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_show_graphic.setEnabled(False)
         self.pushButton_clean_values.setEnabled(False)
         self.pushButton_input_values_height_base_station.setEnabled(False)
+        self.pushButton_input_freequency_zone_frenely.setEnabled(False)
 
 
     # Метод предоставляет возможность выбора необходимой карты формата .hgt
@@ -110,6 +115,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_clean_values.setEnabled(True)
             #Устанавливаем блокировку на кнопку постановки второй точки, для корректной работы программы.
             self.pushButton_set_map_point2.setEnabled(False)
+            #Устанавливаем разблокировку на кнопку вводу значения частоты зоны Френеля
+            self.pushButton_input_freequency_zone_frenely.setEnabled(True)
 
     # Метод проверяет, что выбрана первая точка(нужно чтобы ограничить число выбираемых точек)
     def prepare_point1_selection(self):
@@ -184,7 +191,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.height_of_base_station_2 = self.spinBox_height_of_basestation_2.value()
         # Проверяем значение на корректность
         if self.height_of_base_station_2 > 40 or self.height_of_base_station_1 > 40:
-            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты либо слишком большое.Оно не должно превышать 40.Измените его!")
+            QMessageBox.warning(self, "ВНИМАНИЕ","Введенное вами значение высоты слишком большое.Оно не должно превышать 40.Измените его!")
             self.pushButton_input_values_height_base_station.setEnabled(True)
             self.pushButton_show_graphic.setEnabled(False)
             self.pushButton_clean_values.setEnabled(False)
@@ -194,6 +201,17 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             self.pushButton_input_values_height_base_station.setEnabled(False)
             self.pushButton_show_graphic.setEnabled(True)
             self.pushButton_clean_values.setEnabled(True)
+    # Метод установки частоты для расчеты зоны Френеля
+    def set_freequency(self):
+        self.freequency_freenely = self.SpinBox_freequency_freenely.value()
+        if self.freequency_freenely < 0 or self.freequency_freenely > 10:
+            QMessageBox.warning(self, "ВНИМАНИЕ",
+                                "Введенное вами значение чатоты либо слишком маленькое, либо слишком большое. Оно"
+                                "должно быть не меньше 0 и не больше 10Ггц")
+        else:
+            self.pushButton_input_freequency_zone_frenely.setEnabled(False)
+
+
 
     # Метод отображения профиля местности между двумя точками.
     def show_profile(self):
@@ -226,8 +244,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
             # Динамический расчет радиуса зоны Френеля
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
-            frequency = 2.4  # Пример частоты в ГГц (WiFi)
-
+            frequency = self.freequency_freenely # Берется либо частоты по умолчанию(2.4Ггц), либо частота введенная пользователем.
             # Формула расчета радиуса зоны Френеля
             radius_fresnel_1st_zone_meters = 17.31 * np.sqrt(
                 (distance_meters / 1000) / (4 * frequency)
@@ -415,9 +432,13 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.height_of_base_station_1 = 0
         self.height_of_base_station_2 = 0
 
+        self.freequency_freenely = 2.4
+
         self.pushButton_set_point_on_map.setEnabled(True)
 
         self.pushButton_set_map_point1.setEnabled(True)
+        # Устанавливаем разблокировку на кнопку установки значения частоты зоны Френеля
+        self.pushButton_input_freequency_zone_frenely.setEnabled(True)
         self.pushButton_set_map_point2.setEnabled(False)
 
         self.pushButton_input_values_height_base_station.setEnabled(True)
