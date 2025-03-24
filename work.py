@@ -87,10 +87,14 @@ class Form_main(QtWidgets.QMainWindow,Form1):
 
     # Метод предоставляет возможность выбора необходимой карты формата .hgt
     def open_file_dialog(self):
-        if len(self.selected_points)>0:
-            QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений.")
+        if (len(self.selected_points)>0) :
+            QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений, выбранных точек. При этом значения"
+                                                  "высот антенн базовых станций и частоты зоны френеля очистятся автоматически")
         else:
             # Open the file dialog
+            self.freequency_freenely = 2.4
+            self.height_of_base_station_1 = 0
+            self.height_of_base_station_2 = 0
             options = QFileDialog.Options()
             self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
                                                        "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
@@ -208,6 +212,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             QMessageBox.warning(self, "ВНИМАНИЕ",
                                 "Введенное вами значение чатоты либо слишком маленькое, либо слишком большое. Оно"
                                 "должно быть не меньше 0 и не больше 10Ггц")
+            self.freequency_freenely = 2.4
         else:
             self.pushButton_input_freequency_zone_frenely.setEnabled(False)
 
@@ -442,6 +447,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         self.pushButton_set_map_point2.setEnabled(False)
 
         self.pushButton_input_values_height_base_station.setEnabled(True)
+        # Установка разблокировки на кнопку ручного ввода координат точек 1 и 2
+        self.pushButton_set_point_on_map.setEnabled(True)
 
     # Метод ручной установки точек
     def set_points(self):
@@ -536,6 +543,7 @@ class Form_main(QtWidgets.QMainWindow,Form1):
                 self.pushButton_set_map_point2.setEnabled(False)
                 self.selected_points = []
         else:
+            self.pushButton_set_point_on_map.setEnabled(False)
             # Если все координаты в пределах карты, то производим их отображение в виде точек.
             # Отмечаем первую точку на графике
             self.ax.plot(lon_index1, lat_index1, 'ro')
