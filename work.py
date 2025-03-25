@@ -1,14 +1,20 @@
 import sys
+import os
+import platform
 import numpy as np
 import rasterio
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QPalette, QBrush, QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,QFileDialog
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
+                             QWidget, QPushButton, QFileDialog, QMessageBox)
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from form_of_window import Form1
-import os
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+import warnings
+
+# Глобальные настройки для разных архитектур
+SYSTEM_BITS = platform.architecture()[0]
+MAX_IMAGE_SIZE = 2048 if SYSTEM_BITS == '32bit' else None  # Ограничение для 32-бит
 
 
 def decimal_to_dms(degrees):
@@ -16,11 +22,11 @@ def decimal_to_dms(degrees):
     d = int(degrees)
     m = int((degrees - d) * 60)
     s = (degrees - d - m / 60) * 3600
-    return d, m, round(s, 2)  # Округляем секунды до двух знаков после запятой
+    return d, m, round(s, 2)
 
-#Данный метод учитывает кривизну земной поверхности, что позволяет рассчитать геодезическое расстояние
-#между двумя точками, что является более точным.
+
 def haversine(coord1, coord2):
+    """Рассчитывает расстояние между двумя точками с учетом кривизны Земли."""
     R = 6371e3  # Радиус Земли в метрах
     lat1, lon1 = np.radians(coord1)
     lat2, lon2 = np.radians(coord2)
@@ -31,96 +37,101 @@ def haversine(coord1, coord2):
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-    distance = R * c  # Расстояние в метрах
-    return distance
+    return R * c  # Расстояние в метрах
 
-#Основной класс программы
-class Form_main(QtWidgets.QMainWindow,Form1):
+
+class Form_main(QtWidgets.QMainWindow, Form1):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         self.selected_points = []
-
         self.colorbar = None
-        # Создание вертикального layout для виджета map
-        layout = QVBoxLayout(self.map)
-
-        # Создание canvas
-        self.canvas = FigureCanvas(plt.Figure())
-        layout.addWidget(self.canvas)
-
-        # Настройка subplot
-        self.ax = self.canvas.figure.add_subplot(111)
-
-        # Установка значений высоты антенн базовых станций
         self.height_of_base_station_1 = 0
         self.height_of_base_station_2 = 0
-        # Установка значения частоты зоны френеля в ГГц
         self.freequency_freenely = 2.4
+        self.elevation_data = None
+        self.width = 0
+        self.height = 0
+        self.bounds = None
+        self.file_path = ""
 
-        # Связываем нажатие кнопки с методом open_file_dialog для дальнейшей работы
+        # Инициализация интерфейса
+        layout = QVBoxLayout(self.map)
+        self.canvas = FigureCanvas(plt.Figure())
+        layout.addWidget(self.canvas)
+        self.ax = self.canvas.figure.add_subplot(111)
+
+        # Настройка соединений
+        self.setup_connections()
+
+        # Блокировка кнопок до загрузки карты
+        self.toggle_buttons(False)
+
+        if SYSTEM_BITS == '32bit':
+            self.statusBar().showMessage("32-битный режим: включены ограничения памяти")
+
+    def setup_connections(self):
+        """Настройка сигналов и слотов."""
         self.pushButton_load_map.clicked.connect(self.open_file_dialog)
-        # Связываем нажатие кнопки ввода высот базовых станций с методом обработки
         self.pushButton_input_values_height_base_station.clicked.connect(self.add_height_of_base_station)
-        # Связываем нажатие кнопки отображения профиля высот с соответствующим методом
         self.pushButton_show_graphic.clicked.connect(self.show_prof)
-        # Связываем нажатие кнопки очистки значений с соответствующим методом
         self.pushButton_clean_values.clicked.connect(self.clear_values)
-        # Связываем нажатие кнопки установки на карте точки 1 с соответствующим методом
         self.pushButton_set_map_point1.clicked.connect(self.prepare_point1_selection)
-        # Связываем нажатие кнопки установки на карте точки 2 с соответствующим методом
         self.pushButton_set_map_point2.clicked.connect(self.prepare_point2_selection)
-        # Связываем нажатие кнопки ручной установки на карте точек  с соответствующим методом
         self.pushButton_set_point_on_map.clicked.connect(self.set_points)
         self.pushButton_input_freequency_zone_frenely.clicked.connect(self.set_freequency)
 
-        #Устанавливаем блокировку на кнопки до момента загрузки карты в программе
-        self.pushButton_set_point_on_map.setEnabled(False)
-        self.pushButton_set_map_point1.setEnabled(False)
+    def toggle_buttons(self, enabled):
+        """Включение/выключение кнопок интерфейса."""
+        buttons = [
+            self.pushButton_set_point_on_map,
+            self.pushButton_set_map_point1,
+            self.pushButton_set_map_point2,
+            self.pushButton_input_values_height_base_station,
+            self.pushButton_show_graphic,
+            self.pushButton_clean_values,
+            self.pushButton_input_freequency_zone_frenely
+        ]
+        for btn in buttons:
+            btn.setEnabled(enabled)
+
+        # Особые случаи
         self.pushButton_set_map_point2.setEnabled(False)
-        self.pushButton_input_values_height_base_station.setEnabled(False)
-        self.pushButton_show_graphic.setEnabled(False)
-        self.pushButton_clean_values.setEnabled(False)
-        self.pushButton_input_values_height_base_station.setEnabled(False)
-        self.pushButton_input_freequency_zone_frenely.setEnabled(False)
+        self.pushButton_load_map.setEnabled(True)
 
+    def check_memory_limit(self, data_size):
+        """Проверка ограничений памяти для 32-битных систем."""
+        if SYSTEM_BITS == '32bit' and MAX_IMAGE_SIZE:
+            if data_size > MAX_IMAGE_SIZE:
+                QMessageBox.warning(self, "Ограничение памяти",
+                                    f"32-битная система: максимальный размер {MAX_IMAGE_SIZE} пикселей")
+                return False
+        return True
 
-    # Метод предоставляет возможность выбора необходимой карты формата .hgt
     def open_file_dialog(self):
-        if (len(self.selected_points)>0) :
-            QMessageBox.warning(self, "ВНИМАНИЕ", "Перед загрузкой другой карты необходимо провести очистку значений, выбранных точек. При этом значения"
-                                                  "высот антенн базовых станций и частоты зоны френеля очистятся автоматически")
-        else:
-            # Open the file dialog
-            self.freequency_freenely = 2.4
-            self.height_of_base_station_1 = 0
-            self.height_of_base_station_2 = 0
-            options = QFileDialog.Options()
-            self.file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл", "",
-                                                       "Все файлы (*.*);;Текстовые файлы (*.txt);;Изображения (*.png *.jpg);;HGT файлы (*.hgt)",
-                                                       options=options)
-            # Проверяем, что файл выбран
-            if self.file_path:
-                # Проверяем, существует ли файл
-                if os.path.isfile(self.file_path):
-                    # Проверяем, является ли файл формата .hgt
-                    if self.file_path.endswith('.hgt'):
-                        self.plot_elevation_map()  # Если все правильно, то запускаем метод отображения карты
-                    else:
-                        QMessageBox.warning(self, "Неверный формат", "Выбранный файл не является файлом формата .hgt.")
-                else:
-                    QMessageBox.warning(self, "Ошибка", "Файл не существует.")
-            self.pushButton_clean_values.setEnabled(False)
-            self.pushButton_set_point_on_map.setEnabled(True)
-            self.pushButton_set_map_point1.setEnabled(True)
-            self.pushButton_set_map_point2.setEnabled(True)
-            self.pushButton_input_values_height_base_station.setEnabled(True)
-            self.pushButton_show_graphic.setEnabled(True)
-            self.pushButton_clean_values.setEnabled(True)
-            #Устанавливаем блокировку на кнопку постановки второй точки, для корректной работы программы.
-            self.pushButton_set_map_point2.setEnabled(False)
-            #Устанавливаем разблокировку на кнопку вводу значения частоты зоны Френеля
-            self.pushButton_input_freequency_zone_frenely.setEnabled(True)
+        """Открытие диалога выбора файла карты."""
+        if self.selected_points:
+            QMessageBox.warning(self, "Внимание",
+                                "Перед загрузкой новой карты очистите выбранные точки")
+            return
+
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Выберите файл", "",
+            "HGT файлы (*.hgt);;Все файлы (*.*)", options=options)
+
+        if file_path:
+            if os.path.getsize(file_path) > 100 * 1024 * 1024 and SYSTEM_BITS == '32bit':
+                QMessageBox.warning(self, "Файл слишком большой",
+                                    "Для 32-битных систем максимальный размер файла 100MB")
+                return
+
+            if file_path.endswith('.hgt'):
+                self.file_path = file_path
+                self.plot_elevation_map()
+                self.toggle_buttons(True)
+            else:
+                QMessageBox.warning(self, "Неверный формат", "Требуется файл .hgt")
 
     # Метод проверяет, что выбрана первая точка(нужно чтобы ограничить число выбираемых точек)
     def prepare_point1_selection(self):
@@ -450,6 +461,8 @@ class Form_main(QtWidgets.QMainWindow,Form1):
         # Установка разблокировки на кнопку ручного ввода координат точек 1 и 2
         self.pushButton_set_point_on_map.setEnabled(True)
 
+        self.pushButton_load_map.setEnabled(True)
+
     # Метод ручной установки точек
     def set_points(self):
         """
@@ -559,19 +572,40 @@ class Form_main(QtWidgets.QMainWindow,Form1):
             #Функция, которая производит обновление графика, чтобы отобразить точки
             self.canvas.draw()
 
+    def closeEvent(self, event):
+        """Обработчик закрытия окна."""
+        # Освобождение ресурсов
+        if hasattr(self, 'elevation_data'):
+            del self.elevation_data
+        event.accept()
+
 
 if __name__ == '__main__':
-    if getattr(sys, 'frozen', False):
-        base_path = sys._MEIPASS  # Путь к временной директории при запуске из EXE
-    else:
-        base_path = os.path.dirname(__file__)
+    # Настройка для корректной работы на разных системах
+    if SYSTEM_BITS == '32bit':
+        warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-    image_path = os.path.join(base_path, 'fon', 'picture.jpg')
+    # Проверка архитектуры Python
+    if platform.architecture()[0] != SYSTEM_BITS:
+        QMessageBox.warning(None, "Ошибка архитектуры",
+                            f"Запущена {platform.architecture()[0]} версия Python "
+                            f"на {SYSTEM_BITS} системе")
+        sys.exit(1)
 
     app = QtWidgets.QApplication(sys.argv)
+
+    # Загрузка фона с учетом архитектуры
+    base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+    image_path = os.path.join(base_path, 'fon', 'picture.jpg')
+
+    if not os.path.exists(image_path):
+        image_path = ""  # Если изображение не найдено
+
     form = Form_main()
-    palette = QPalette()
-    palette.setBrush(QPalette.Background, QBrush(QPixmap(image_path)))
-    form.setPalette(palette)
+    if image_path:
+        palette = QPalette()
+        palette.setBrush(QPalette.Background, QBrush(QPixmap(image_path)))
+        form.setPalette(palette)
+
     form.show()
     sys.exit(app.exec_())
