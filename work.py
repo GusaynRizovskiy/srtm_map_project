@@ -219,7 +219,7 @@ class Form_main(QtWidgets.QMainWindow, Form1):
     # Метод установки частоты для расчеты зоны Френеля
     def set_freequency(self):
         self.freequency_freenely = self.SpinBox_freequency_freenely.value()
-        if self.freequency_freenely < 0 or self.freequency_freenely > 10:
+        if self.freequency_freenely <= 0 or self.freequency_freenely > 10:
             QMessageBox.warning(self, "ВНИМАНИЕ",
                                 "Введенное вами значение чатоты либо слишком маленькое, либо слишком большое. Оно"
                                 "должно быть не меньше 0 и не больше 10Ггц")
@@ -260,7 +260,7 @@ class Form_main(QtWidgets.QMainWindow, Form1):
 
             # Динамический расчет радиуса зоны Френеля
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
-            frequency = self.freequency_freenely # Берется либо частоты по умолчанию(2.4Ггц), либо частота введенная пользователем.
+            frequency = self.freequency_freenely  # Берется либо частоты по умолчанию(2.4Ггц), либо частота введенная пользователем.
             # Формула расчета радиуса зоны Френеля
             radius_fresnel_1st_zone_meters = 17.31 * np.sqrt(
                 (distance_meters / 1000) / (4 * frequency)
@@ -362,12 +362,15 @@ class Form_main(QtWidgets.QMainWindow, Form1):
                                 arrowprops=dict(facecolor='black', shrink=0.05),
                                 fontsize=10, color='black')
 
-            profile_ax.annotate(f'Затухание (FSPL): {fspl_db:.2f} дБ',
-                                xy=(distance_kilometers / 2, np.max(elevations_with_curvature) + 10),
-                                xytext=(distance_kilometers / 2, np.max(elevations_with_curvature) + 70),
-                                fontsize=10, color='brown',
-                                bbox=dict(facecolor='green', alpha=0.8, edgecolor='red'),
-                                ha='center')
+            # Отображение информации о затухании по центру внизу
+            profile_ax.text(0.5, 0.02,
+                            f'Затухание (FSPL): {fspl_db:.2f} дБ',
+                            transform=profile_ax.transAxes,
+                            fontsize=10,
+                            color='black',
+                            verticalalignment='bottom',
+                            horizontalalignment='center',
+                            bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
 
             profile_ax.legend()
             profile_ax.grid(True)
