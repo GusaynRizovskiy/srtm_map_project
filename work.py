@@ -342,14 +342,12 @@ class Form_main(QtWidgets.QMainWindow, Form1):
                                 bbox=dict(facecolor='white', alpha=0.8, edgecolor='green'))
 
             # Проведение вертикальных линий из точек 1 и 2 до высоты 0
-            profile_ax.plot([0, 0], [0, elevations[0]], color='black', linestyle=':',
-                            label='Вертикальная линия до 0 (Точка 1)')
+            profile_ax.plot([0, 0], [0, elevations[0]], color='black', linestyle=':')
             profile_ax.plot([distance_kilometers, distance_kilometers], [0, elevations[-1]],
-                            color='black', linestyle=':', label='Вертикальная линия до 0 (Точка 2)')
+                            color='black', linestyle=':')
 
             # Проведение горизонтальной линии на уровне высоты 0, соединяющей две вертикальные линии
-            profile_ax.plot([0, distance_kilometers], [0, 0], color='gray', linestyle='-',
-                            label='Горизонтальная линия на уровне 0')
+            profile_ax.plot([0, distance_kilometers], [0, 0], color='gray', linestyle='-')
 
             # Добавление аннотации для максимального значения зоны Френеля
             max_fresnel_x = distance_kilometers / 2  # Середина профиля
