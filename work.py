@@ -278,6 +278,10 @@ class Form_main(QtWidgets.QMainWindow, Form1):
             distance_meters = haversine(self.selected_points[0], self.selected_points[1])
             distance_kilometers = distance_meters / 1000.0
 
+            # Расчет затухания в свободном пространстве
+            wavelength = 3e8 / (self.freequency_freenely * 1e9)  # Длина волны в метрах
+            fspl_db = 112 + 20 * np.log10(distance_kilometers / wavelength)  # Формула затухания
+
             profile_fig, profile_ax = plt.subplots(figsize=(10, 5))
 
             # Построение профиля местности
@@ -357,6 +361,13 @@ class Form_main(QtWidgets.QMainWindow, Form1):
                                 xytext=(max_fresnel_x, max_fresnel_y + 10),
                                 arrowprops=dict(facecolor='black', shrink=0.05),
                                 fontsize=10, color='black')
+
+            profile_ax.annotate(f'Затухание (FSPL): {fspl_db:.2f} дБ',
+                                xy=(distance_kilometers / 2, np.max(elevations_with_curvature) + 10),
+                                xytext=(distance_kilometers / 2, np.max(elevations_with_curvature) + 70),
+                                fontsize=10, color='brown',
+                                bbox=dict(facecolor='green', alpha=0.8, edgecolor='red'),
+                                ha='center')
 
             profile_ax.legend()
             profile_ax.grid(True)
