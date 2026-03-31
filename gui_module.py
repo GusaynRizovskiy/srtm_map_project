@@ -123,40 +123,71 @@ class RadioApp(ctk.CTk):
         self.refresh_map()
 
     def show_profile_window(self):
-        """Создает отдельное окно с графиком профиля."""
         if len(self.points) < 2 or self.hgt_path is None:
             return
 
-        # Расчет данных через app_logic
         dist, elev = app_logic.get_elevation_profile(self.hgt_path, self.points[0], self.points[1])
-
-        # Окно профиля
-        top = ctk.CTkToplevel(self)
-        top.title("Профиль высот и прямая видимость")
-        top.geometry("900x500")
-        top.after(100, lambda: top.focus_force())
-
-        fig_p = Figure(figsize=(7, 4), dpi=100)
-        ax_p = fig_p.add_subplot(111)
+        total_dist = dist[-1]
 
         try:
             h1 = float(self.h1_entry.get())
             h2 = float(self.h2_entry.get())
+            freq = float(self.freq_entry.get())
         except ValueError:
-            h1, h2 = 0, 0
+            h1, h2, freq = 10, 10, 2.4
 
-        # Построение линии видимости (упрощенно)
-        los = np.linspace(elev[0] + h1, elev[-1] + h2, len(dist))
+        # --- РАСЧЕТ КРИВИЗНЫ ---
+        # Получаем "дугу" земли. В центре трассы она будет приподнимать рельеф
+        earth_arc = app_logic.get_earth_arc(dist)
 
-        ax_p.fill_between(dist, elev, color='sienna', alpha=0.3, label='Рельеф')
-        ax_p.plot(dist, elev, color='saddlebrown', lw=1.5)
-        ax_p.plot(dist, los, 'b--', label='Линия связи')
+        # Рельеф, поднятый над хордой за счет искривления
+        elev_curved = elev + earth_arc
 
-        ax_p.set_title("Разрез местности")
+        # Линия прямой видимости (от антенны 1 до антенны 2)
+        # Антенны стоят на уже "поднятых" точках рельефа
+        start_alt = elev_curved[0] + h1
+        end_alt = elev_curved[-1] + h2
+        los_line = np.linspace(start_alt, end_alt, len(dist))
+
+        # Зона Френеля относительно линии LOS
+        f_radius = app_logic.get_fresnel_zone(dist, total_dist, freq)
+        f_upper = los_line + f_radius
+        f_lower = los_line - f_radius
+
+        # --- ОТРИСОВКА ---
+        top = ctk.CTkToplevel(self)
+        top.title(f"Профиль с учетом искривления: {round(total_dist / 1000, 2)} км")
+        top.geometry("1100x650")
+
+        fig_p = Figure(figsize=(10, 6), dpi=100, facecolor='#f0f0f0')
+        ax_p = fig_p.add_subplot(111)
+
+        # 1. Рисуем "тело" Земли (пространство под дугой)
+        ax_p.fill_between(dist, earth_arc, -100, color='#d2b48c', alpha=0.3, label='Тело Земли')
+
+        # 2. Рисуем сам Рельеф поверх дуги Земли
+        ax_p.fill_between(dist, elev_curved, earth_arc, color='sienna', alpha=0.7, label='Рельеф местности')
+        ax_p.plot(dist, elev_curved, color='saddlebrown', lw=1)
+
+        # 3. Зона Френеля
+        ax_p.fill_between(dist, f_lower, f_upper, color='yellow', alpha=0.2, label='1-я зона Френеля')
+
+        # 4. Линия LOS
+        ax_p.plot(dist, los_line, 'b--', label='Прямая видимость (LOS)', lw=2)
+
+        # Точки установки антенн
+        ax_p.plot(dist[0], start_alt, 'ko', markersize=4)
+        ax_p.plot(dist[-1], end_alt, 'ko', markersize=4)
+
+        # Настройка осей
         ax_p.set_xlabel("Дистанция (м)")
-        ax_p.set_ylabel("Высота над уровнем моря (м)")
-        ax_p.legend()
-        ax_p.grid(True, linestyle=':', alpha=0.6)
+        ax_p.set_ylabel("Высота над хордой (м)")
+        ax_p.set_title("Профиль трассы на эллипсоиде (модель 4/3)")
+        ax_p.legend(loc='upper right', fontsize='small')
+        ax_p.grid(True, linestyle='--', alpha=0.5)
+
+        # Ограничиваем вид, чтобы не видеть "минусовые" высоты глубоко под землей
+        ax_p.set_ylim(min(earth_arc) - 20, max(f_upper) + 50)
 
         canvas_p = FigureCanvasTkAgg(fig_p, master=top)
         canvas_p.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)

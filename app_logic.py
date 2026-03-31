@@ -36,3 +36,42 @@ def get_elevation_profile(raster_path, p1, p2, num_points=250):
         # Расстояния в метрах от первой точки
         distances = [haversine(p1, (lats[i], lons[i])) for i in range(num_points)]
         return np.array(distances), np.array(elevations)
+
+
+import numpy as np
+
+
+def calculate_earth_curvature(distances):
+    """
+    Рассчитывает поправку на кривизну Земли для каждой точки дистанции.
+    Используется формула h = d^2 / (2 * R_eff), где R_eff ~ 8500 км
+    (с учетом стандартной атмосферной рефракции k=4/3).
+    """
+    R_eff = 6371000 * (4 / 3)  # Эффективный радиус Земли
+    return (distances ** 2) / (2 * R_eff)
+
+
+def get_fresnel_zone(distances, total_dist, frequency_ghz):
+    """
+    Рассчитывает радиус первой зоны Френеля в каждой точке трассы.
+    R = 17.31 * sqrt( (d1 * d2) / (f * D) )
+    """
+    d1 = distances  # Расстояние от передатчика
+    d2 = total_dist - distances  # Расстояние до приемника
+
+    # Избегаем деления на ноль в конечных точках
+    with np.errstate(divide='ignore', invalid='ignore'):
+        fresnel_radii = 17.31 * np.sqrt((d1 / 1000 * d2 / 1000) / (frequency_ghz * total_dist / 1000))
+
+    return np.nan_to_num(fresnel_radii)
+
+def get_earth_arc(distances):
+    """
+    Рассчитывает высоту дуги земной поверхности (горб).
+    Используем формулу: h = (d * (D - d)) / (2 * R_eff)
+    где d - текущее расстояние, D - общая дистанция.
+    """
+    D = distances[-1]
+    R_eff = 6371000 * (4/3)
+    # Эта формула дает 0 в начале и конце трассы и максимум в середине
+    return (distances * (D - distances)) / (2 * R_eff)
