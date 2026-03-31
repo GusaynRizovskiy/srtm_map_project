@@ -5,7 +5,7 @@ import tkinter.filedialog as fd
 import numpy as np
 import app_logic
 
-# Устанавливаем СВЕТЛУЮ тему
+# Устанавливаем глобальную светлую тему
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
@@ -15,8 +15,6 @@ class RadioApp(ctk.CTk):
         super().__init__()
         self.title("Радиосвязь: Инженерный расчет")
         self.geometry("1400x950")
-
-        # Цвет фона самого окна
         self.configure(fg_color="#FFFFFF")
 
         self.hgt_path = None
@@ -30,17 +28,14 @@ class RadioApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Левая панель (светло-серый фон для контраста)
+        # Левая панель
         self.sidebar = ctk.CTkScrollableFrame(
-            self,
-            width=340,
-            label_text="Параметры системы",
-            fg_color="#F2F2F2",
-            label_text_color="black"
+            self, width=340, label_text="Параметры системы",
+            fg_color="#F2F2F2", label_text_color="black"
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-        # --- ГРУППЫ ПАРАМЕТРОВ ---
+        # Группы параметров
         self.geo_frame = self.create_group("1. Геометрия трассы")
         self.h1_entry = self.create_field(self.geo_frame, "Высота подвеса А1 (м):", "15")
         self.h2_entry = self.create_field(self.geo_frame, "Высота подвеса А2 (м):", "15")
@@ -64,8 +59,7 @@ class RadioApp(ctk.CTk):
         ctk.CTkLabel(self.ant_frame, text="Конструкция антенны:", text_color="black").pack(pady=(5, 0))
         self.ant_type_var = ctk.StringVar(value="Однозеркальная (η=0.6)")
         self.ant_type_menu = ctk.CTkOptionMenu(
-            self.ant_frame,
-            values=["Однозеркальная (η=0.6)", "Двузеркальная (η=0.7)"],
+            self.ant_frame, values=["Однозеркальная (η=0.6)", "Двузеркальная (η=0.7)"],
             variable=self.ant_type_var
         )
         self.ant_type_menu.pack(pady=(0, 10), padx=10, fill="x")
@@ -75,18 +69,17 @@ class RadioApp(ctk.CTk):
         self.btn_load.pack(pady=10, padx=10, fill="x")
 
         self.btn_plot = ctk.CTkButton(self.sidebar, text="Построить профиль",
-                                      command=self.show_profile_window, fg_color="#2c5d2c")
+                                      command=self.show_profile_window, fg_color="#2c5d2c", hover_color="#1e401e")
         self.btn_plot.pack(pady=10, padx=10, fill="x")
 
         self.btn_clear = ctk.CTkButton(self.sidebar, text="Сбросить точки",
-                                       command=self.clear_points, fg_color="#777777")
+                                       command=self.clear_points, fg_color="#777777", hover_color="#555555")
         self.btn_clear.pack(pady=5, padx=10, fill="x")
 
-        # Карта (справа) - Белый фон контейнера
+        # Карта (справа)
         self.plot_frame = ctk.CTkFrame(self, fg_color="#FFFFFF")
         self.plot_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
-        # Настройка Matplotlib для белой темы
         self.fig = Figure(figsize=(8, 6), dpi=100, facecolor='#F5F5F5')
         self.ax = self.fig.add_subplot(111)
         self.ax.set_facecolor('#FFFFFF')
@@ -108,8 +101,7 @@ class RadioApp(ctk.CTk):
         return frame
 
     def create_field(self, master, label_text, default_val):
-        ctk.CTkLabel(master, text=label_text, justify="left", anchor="w", text_color="black").pack(pady=(5, 0), padx=10,
-                                                                                                   fill="x")
+        ctk.CTkLabel(master, text=label_text, anchor="w", text_color="black").pack(pady=(5, 0), padx=10, fill="x")
         entry = ctk.CTkEntry(master, fg_color="#F9F9F9", text_color="black", border_color="#CCCCCC")
         entry.insert(0, default_val)
         entry.pack(pady=(0, 10), padx=10, fill="x")
@@ -127,15 +119,20 @@ class RadioApp(ctk.CTk):
     def refresh_map(self):
         if self.current_matrix is not None:
             self.ax.clear()
-            self.ax.set_facecolor('#F9F9F9')
-            # Используем 'gist_earth' или 'terrain' - они хорошо смотрятся на белом
-            self.ax.imshow(self.current_matrix, extent=self.map_extent, cmap='terrain', origin='upper')
+            self.ax.set_facecolor('#FFFFFF')
             self.ax.tick_params(colors='black')
+            for spine in self.ax.spines.values():
+                spine.set_color('black')
+
+            self.ax.imshow(self.current_matrix, extent=self.map_extent, cmap='terrain', origin='upper')
+
             for p in self.points:
-                self.ax.plot(p[1], p[0], 'ro', markersize=7, markeredgecolor='white')
+                self.ax.plot(p[1], p[0], 'ro', markersize=7, markeredgecolor='black', markeredgewidth=1)
+
             if len(self.points) == 2:
                 lats, lons = zip(*self.points)
                 self.ax.plot(lons, lats, 'r--', linewidth=2)
+
             self.canvas.draw()
 
     def on_map_click(self, event):
@@ -156,20 +153,23 @@ class RadioApp(ctk.CTk):
         total_dist = dist[-1]
 
         try:
-            h1 = float(self.h1_entry.get())
-            h2 = float(self.h2_entry.get())
-            f_frenel = float(self.f_frenel_entry.get())
-            f_max = float(self.f_max_entry.get())
+            h1, h2 = float(self.h1_entry.get()), float(self.h2_entry.get())
+            f_frenel, f_max = float(self.f_frenel_entry.get()), float(self.f_max_entry.get())
         except ValueError:
-            h1, h2, f_frenel = 15, 15, 2.4
+            h1, h2, f_frenel, f_max = 15, 15, 2.4, 2400
 
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
-        los_line = np.linspace(elev_curved[0] + h1, elev_curved[-1] + h2, len(dist))
+
+        # Координаты антенн
+        ground_start, ground_end = elev_curved[0], elev_curved[-1]
+        ant_start, ant_end = ground_start + h1, ground_end + h2
+
+        los_line = np.linspace(ant_start, ant_end, len(dist))
         f_radius = app_logic.get_fresnel_zone(dist, total_dist, f_frenel)
 
         top = ctk.CTkToplevel(self)
-        top.title("Анализ профиля трассы")
+        top.title("Технический профиль трассы")
         top.geometry("1100x600")
         top.configure(fg_color="#FFFFFF")
 
@@ -178,15 +178,29 @@ class RadioApp(ctk.CTk):
         ax_p.set_facecolor('#FCFCFC')
         ax_p.tick_params(colors='black')
 
+        # Отрисовка
         ax_p.fill_between(dist, earth_arc, -100, color='#ADD8E6', alpha=0.3, label='Кривизна Земли')
-        ax_p.fill_between(dist, elev_curved, earth_arc, color='#8B4513', alpha=0.6, label='Рельеф')
-        ax_p.fill_between(dist, los_line - f_radius, los_line + f_radius, color='#FFA500', alpha=0.2,
-                          label=f'Зона Френеля ({f_frenel} ГГц)')
+        ax_p.fill_between(dist, elev_curved, earth_arc, color='sienna', alpha=0.6, label='Рельеф')
+        ax_p.fill_between(dist, los_line - f_radius, los_line + f_radius, color='yellow', alpha=0.3,
+                          label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
+        # Отрисовка антенных мачт
+        ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
+        ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
+        ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
+        ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
+
+        # ФИКСАЦИЯ ОСЕЙ (Начало координат)
+        ax_p.set_xlim(0, total_dist)
+        # Устанавливаем минимум (море или яма) и максимум (антенна + запас)
+        y_min = min(0, np.min(earth_arc))
+        y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
+        ax_p.set_ylim(y_min, y_max)
+
         ax_p.set_title(f"Профиль трассы (f = {f_max} МГц)", color='black')
-        ax_p.set_xlabel("Дистанция (м)", color='black')
-        ax_p.set_ylabel("Высота (м)", color='black')
+        ax_p.set_xlabel("Дистанция (м)")
+        ax_p.set_ylabel("Высота (м)")
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
