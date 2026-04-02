@@ -55,6 +55,19 @@ class RadioApp(ctk.CTk):
         self.ant_frame = self.create_group("5. Антенная система")
         self.ant_diam_entry = self.create_field(self.ant_frame, "Диаметр антенны d (м):", "0.6")
 
+        self.surface_frame = self.create_group("6. Подстилающая поверхность")
+        surface_types = [
+            "Малопересеченная равнина, пойменные луга, солончаки",
+            "Малопересеченная равнина, покрытая лесом",
+            "Среднепересеченная открытая местность",
+            "Среднепересеченная местность, покрытая лесом"
+        ]
+        self.surface_var = ctk.StringVar(value=surface_types[0])
+        self.surface_menu = ctk.CTkOptionMenu(
+            self.surface_frame, values=surface_types, variable=self.surface_var
+        )
+        self.surface_menu.pack(pady=5, padx=10, fill="x")
+
         ctk.CTkLabel(self.ant_frame, text="Конструкция антенны:", text_color="black").pack(pady=(5, 0))
         self.ant_type_var = ctk.StringVar(value="Однозеркальная (η=0.6)")
         self.ant_type_menu = ctk.CTkOptionMenu(
@@ -168,7 +181,8 @@ class RadioApp(ctk.CTk):
             ant_type = "Однозеркальная (η=0.6)"
 
         freq_ghz = freq_mhz / 1000.0
-        wavelength = 0.3 / freq_ghz
+        wavelength = 0.3 / freq_ghz  # м
+        wavelength_cm = wavelength * 100  # см
 
         ant_efficiency = 0.6 if "Однозеркальная" in ant_type else 0.7
         G_linear = (np.pi * ant_diam) ** 2 * ant_efficiency / (wavelength ** 2)
@@ -195,7 +209,6 @@ class RadioApp(ctk.CTk):
         ax_p.set_facecolor('#FCFCFC')
         ax_p.tick_params(colors='black')
 
-        # Базовые элементы
         ax_p.fill_between(dist, earth_arc, -100, color='#ADD8E6', alpha=0.3, label='Кривизна Земли')
         ax_p.fill_between(dist, elev_curved, earth_arc, color='sienna', alpha=0.6, label='Рельеф')
         ax_p.fill_between(dist, los_line - f_radius, los_line + f_radius, color='yellow', alpha=0.3,
@@ -208,21 +221,12 @@ class RadioApp(ctk.CTk):
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # Переменные для параметров
-        d1 = d2 = H0 = H_g = T_i = l = h = Wp = W_R = None
-        h0_rel = None
-        interval_type = "unknown"
+        # Переменные
+        d1 = d2 = H0 = H_g = T_i = l = h = Wp = None
+        x_left = x_right = None
 
-        # ----- Определение типа интервала -----
         clearances = los_line - elev_curved
-        min_clearance = np.min(clearances)
-
-        if min_clearance < 0:
-            interval_type = "closed"
-            ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
-                      transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
-        else:
-            # Находим точку минимального просвета (для любых расчётов)
+        if np.min(clearances) >= 0:  # Полуоткрытый или открытый
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -237,134 +241,158 @@ class RadioApp(ctk.CTk):
                 t = max(0, min(1, t))
                 x_proj = x1 + t * dx
                 y_proj = y1 + t * dy
+
                 d1 = x_proj
                 d2 = total_dist - x_proj
                 H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
-                # Геометрический просвет с учётом рефракции
                 R0 = 6370000.0
                 K = 4 / 3
                 H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
                 delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)
                 H_g = H_geom + delta_H
 
-                if H_g >= H0:
-                    interval_type = "open"
-                    # Открытый интервал: расчёт затухания по интерференции
-                    h0_rel = H_g / H0
-                    # Коэффициент отражения (пока константа для равнины, длина волны ~12 см)
-                    # В дальнейшем можно вынести в настройки
-                    phi3 = 0.8  # для малопересечённой равнины
-                    # Расчёт W_R по оцифрованному графику рис. 3.24
-                    W_R = self._calc_open_loss(h0_rel, phi3)
-                    # Коэффициент перерыва связи (по той же формуле)
+                if H_g > 0:
                     if intervals > 0:
                         T_i = (100 - reliability) / intervals
                     else:
                         T_i = 0
-                    # Для открытого интервала не рисуем точку и перпендикуляр
-                elif H_g > 0:
-                    interval_type = "semiopen"
-                    # Полуоткрытый интервал
-                    # Рисуем точку и перпендикуляр
-                    ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
-                              label='Ближайшая точка рельефа')
-                    ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
-                    # Коэффициент перерыва связи
-                    if intervals > 0:
-                        T_i = (100 - reliability) / intervals
-                    else:
-                        T_i = 0
-                    # Расчёт l, h, Wp (как ранее)
-                    critical_line = los_line - H0
-                    # Поиск пересечений (код такой же, как в предыдущей версии)
-                    crosses = []
-                    for i in range(len(dist) - 1):
-                        diff1 = elev_curved[i] - critical_line[i]
-                        diff2 = elev_curved[i + 1] - critical_line[i + 1]
-                        if diff1 * diff2 < 0:
-                            x1c, x2c = dist[i], dist[i + 1]
-                            y1c, y2c = elev_curved[i], elev_curved[i + 1]
-                            yc1, yc2 = critical_line[i], critical_line[i + 1]
-                            denom = (y2c - y1c) - (yc2 - yc1)
-                            if abs(denom) > 1e-9:
-                                t_cross = (yc1 - y1c) / denom
-                                x_cross = x1c + t_cross * (x2c - x1c)
-                                crosses.append(x_cross)
-                    x_left = x_right = None
-                    l = h = 0
-                    if len(crosses) >= 2:
-                        crosses.sort()
-                        left_cross = None
-                        right_cross = None
-                        for xc in crosses:
-                            if xc <= x0 and (left_cross is None or xc > left_cross):
-                                left_cross = xc
-                            if xc >= x0 and (right_cross is None or xc < right_cross):
-                                right_cross = xc
-                        if left_cross is not None and right_cross is not None and left_cross < right_cross:
-                            x_left = left_cross
-                            x_right = right_cross
-                            l = x_right - x_left
-                            mask = (dist >= x_left) & (dist <= x_right)
-                            if np.any(mask):
-                                max_elev = np.max(elev_curved[mask])
-                                y_left_crit = np.interp(x_left, dist, critical_line)
-                                y_right_crit = np.interp(x_right, dist, critical_line)
-                                x_max = dist[mask][np.argmax(elev_curved[mask])]
-                                if x_right - x_left > 0:
-                                    t_mn = (x_max - x_left) / (x_right - x_left)
-                                    y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
-                                    h = max_elev - y_mn
-                    if l <= 0 or h <= 0:
-                        Wp = 0.0
-                        l = h = 0
-                    else:
-                        p_rel = H_g / H0
-                        if p_rel < 1:
-                            Wp = 12 * (1 - p_rel) ** 2
-                        else:
-                            Wp = 0.0
-                    # Визуализация для полуоткрытого интервала
-                    ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
-                              label='LOS - H₀ (критический уровень)')
-                    if l > 0 and h > 0 and x_left is not None and x_right is not None:
-                        y_left_crit = np.interp(x_left, dist, critical_line)
-                        y_right_crit = np.interp(x_right, dist, critical_line)
-                        ax_p.plot(x_left, y_left_crit, 'bo', markersize=6, label='Точки пересечения')
-                        ax_p.plot(x_right, y_right_crit, 'bo', markersize=6)
-                        ax_p.plot([x_left, x_right], [y_left_crit, y_right_crit], 'g--', linewidth=1.5,
-                                  label='Прямая mn')
-                        ax_p.annotate('', xy=(x_left, y_left_crit - 5), xytext=(x_right, y_left_crit - 5),
-                                      arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
-                        ax_p.text((x_left + x_right) / 2, y_left_crit - 15, f'l = {l:.0f} м',
-                                  ha='center', fontsize=8, color='blue')
-                        y_mn_at_x0 = np.interp(x0, [x_left, x_right], [y_left_crit, y_right_crit])
-                        ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
-                        ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
-                                  bbox=dict(facecolor='white', alpha=0.6))
-                else:
-                    interval_type = "closed_refr"
-                    ax_p.text(0.5, 0.5, "Интервал закрытый с учётом рефракции (H(g) <= 0)",
-                              transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
-        # ----- Оформление осей и легенды -----
+                    if H_g >= H0:
+                        # ----- ОТКРЫТЫЙ ИНТЕРВАЛ -----
+                        # Точка и перпендикуляр НЕ рисуются
+                        h0_rel = H_g / H0
+                        # Определяем Φ по таблице 3.4
+                        surface_text = self.surface_var.get()
+                        if wavelength_cm <= 30:
+                            phi_table = {
+                                "Малопересеченная равнина, пойменные луга, солончаки": 0.9,
+                                "Малопересеченная равнина, покрытая лесом": 0.7,
+                                "Среднепересеченная открытая местность": 0.5,
+                                "Среднепересеченная местность, покрытая лесом": 0.3
+                            }
+                        else:
+                            phi_table = {
+                                "Малопересеченная равнина, пойменные луга, солончаки": 0.95,
+                                "Малопересеченная равнина, покрытая лесом": 0.9,
+                                "Среднепересеченная открытая местность": 0.7,
+                                "Среднепересеченная местность, покрытая лесом": 0.6
+                            }
+                        phi3 = phi_table.get(surface_text, 0.8)
+                        D = 1.0  # коэффициент расходимости (пока 1)
+                        cos_term = np.cos((np.pi / 3) * (h0_rel ** 2))
+                        cos_term = np.clip(cos_term, -1.0, 1.0)
+                        Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
+                        if np.isnan(Wp) or Wp > 50:
+                            Wp = 50.0
+                        l = 0
+                        h = 0
+                    else:
+                        # ----- ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ -----
+                        # Рисуем точку и перпендикуляр
+                        ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
+                                  label='Ближайшая точка рельефа')
+                        ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+
+                        critical_line = los_line - H0
+                        # Поиск пересечений
+                        crosses = []
+                        for i in range(len(dist) - 1):
+                            diff1 = elev_curved[i] - critical_line[i]
+                            diff2 = elev_curved[i + 1] - critical_line[i + 1]
+                            if diff1 * diff2 < 0:
+                                x1c, x2c = dist[i], dist[i + 1]
+                                y1c, y2c = elev_curved[i], elev_curved[i + 1]
+                                yc1, yc2 = critical_line[i], critical_line[i + 1]
+                                denom = (y2c - y1c) - (yc2 - yc1)
+                                if abs(denom) > 1e-9:
+                                    t_cross = (yc1 - y1c) / denom
+                                    x_cross = x1c + t_cross * (x2c - x1c)
+                                    crosses.append(x_cross)
+                        if len(crosses) >= 2:
+                            crosses.sort()
+                            left_cross = None
+                            right_cross = None
+                            for xc in crosses:
+                                if xc <= x0 and (left_cross is None or xc > left_cross):
+                                    left_cross = xc
+                                if xc >= x0 and (right_cross is None or xc < right_cross):
+                                    right_cross = xc
+                            if left_cross is not None and right_cross is not None and left_cross < right_cross:
+                                x_left = left_cross
+                                x_right = right_cross
+                                l = x_right - x_left
+                                mask = (dist >= x_left) & (dist <= x_right)
+                                if np.any(mask):
+                                    max_elev = np.max(elev_curved[mask])
+                                    y_left_crit = np.interp(x_left, dist, critical_line)
+                                    y_right_crit = np.interp(x_right, dist, critical_line)
+                                    x_max = dist[mask][np.argmax(elev_curved[mask])]
+                                    if x_right - x_left > 0:
+                                        t_mn = (x_max - x_left) / (x_right - x_left)
+                                        y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
+                                        h = max_elev - y_mn
+                                    else:
+                                        h = 0
+                                else:
+                                    l, h = 0, 0
+                            else:
+                                l, h = 0, 0
+                        else:
+                            l, h = 0, 0
+
+                        if l <= 0 or h <= 0:
+                            Wp = 0.0
+                            l = 0
+                            h = 0
+                        else:
+                            p_rel = H_g / H0 if H0 > 0 else 0
+                            if p_rel < 1:
+                                Wp = 12 * (1 - p_rel) ** 2
+                            else:
+                                Wp = 0.0
+
+                        # Визуализация для полуоткрытого интервала
+                        ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
+                                  label='LOS - H₀ (критический уровень)')
+                        if l > 0 and h > 0 and x_left is not None and x_right is not None:
+                            y_left_crit = np.interp(x_left, dist, critical_line)
+                            y_right_crit = np.interp(x_right, dist, critical_line)
+                            ax_p.plot(x_left, y_left_crit, 'bo', markersize=6, label='Точки пересечения')
+                            ax_p.plot(x_right, y_right_crit, 'bo', markersize=6)
+                            ax_p.plot([x_left, x_right], [y_left_crit, y_right_crit], 'g--', linewidth=1.5,
+                                      label='Прямая mn')
+                            ax_p.annotate('', xy=(x_left, y_left_crit - 5), xytext=(x_right, y_left_crit - 5),
+                                          arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
+                            ax_p.text((x_left + x_right) / 2, y_left_crit - 15, f'l = {l:.0f} м',
+                                      ha='center', fontsize=8, color='blue')
+                            y_mn_at_x0 = np.interp(x0, [x_left, x_right], [y_left_crit, y_right_crit])
+                            ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
+                            ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
+                                      bbox=dict(facecolor='white', alpha=0.6))
+                else:
+                    ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф с учётом рефракции)",
+                              transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
+        else:
+            ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
+                      transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
+
+        # Оформление осей (без изменений)
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
         ax_p.set_ylim(y_min, y_max)
-
         ax_p.set_title(f"Профиль трассы (f = {freq_mhz} МГц)", color='black')
         ax_p.set_xlabel("Дистанция (м)")
         ax_p.set_ylabel("Высота (м)")
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
-        # ----- Текстовая информация -----
+        # Текстовая информация (без изменений)
         info_base = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
             f"Рабочая частота: {freq_mhz} МГц\n"
-            f"Длина волны: {wavelength:.3f} м\n"
+            f"Длина волны: {wavelength:.3f} м ({wavelength_cm:.1f} см)\n"
             f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Потери в свободном пространстве: {free_space_loss:.1f} дБ\n"
             f"Надёжность: {reliability}%\n"
@@ -375,35 +403,36 @@ class RadioApp(ctk.CTk):
             f"Антенна: {ant_type} (d={ant_diam} м)"
         )
 
-        if interval_type == "open":
-            info_extra = (
-                f"\nТип интервала: открытый\n"
-                f"d1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
-                f"Критический просвет H0 = {H0:.2f} м\n"
-                f"Фактический просвет H(g) = {H_g:.2f} м\n"
-                f"Относительный просвет h0 = {h0_rel:.2f}\n"
-                f"Коэфф. отражения Φ₃ = 0.8 (равнина)\n"
-                f"Затухание на рельеф (открытый) W_R = {W_R:.1f} дБ\n"
-                f"Коэфф. перерыва связи T_i = {T_i:.4f} %"
-            )
-        elif interval_type == "semiopen":
-            info_extra = (
-                f"\nТип интервала: полуоткрытый\n"
-                f"d1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
-                f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
-                f"Фактический просвет H(g) = {H_g:.2f} м\n"
-                f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
-                f"Протяжённость препятствия l = {l:.0f} м\n"
-                f"Высота препятствия h = {h:.1f} м\n"
-                f"Затухание на рельеф Wp = {Wp:.1f} дБ"
-            )
-        elif interval_type == "closed" or interval_type == "closed_refr":
-            info_extra = "\n(Интервал закрытый, расчёт затухания не выполнен)"
+        if d1 is not None and H_g is not None and H_g > 0:
+            if H_g >= H0:
+                h0_rel = H_g / H0
+                surface_text = self.surface_var.get()
+                info_extra = (
+                    f"\nd1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
+                    f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
+                    f"Фактический просвет H(g) = {H_g:.2f} м\n"
+                    f"Относительный просвет h0 = {h0_rel:.3f}\n"
+                    f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                    f"Тип поверхности: {surface_text}\n"
+                    f"Коэфф. отражения Φ₃ = {phi3:.2f}\n"
+                    f"Затухание на рельеф Wp = {Wp:.1f} дБ"
+                )
+            else:
+                info_extra = (
+                    f"\nd1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
+                    f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
+                    f"Фактический просвет H(g) = {H_g:.2f} м\n"
+                    f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                    f"Протяжённость препятствия l = {l:.0f} м\n"
+                    f"Высота препятствия h = {h:.1f} м\n"
+                    f"Затухание на рельеф Wp = {Wp:.1f} дБ"
+                )
+        elif d1 is not None and H_g is not None and H_g <= 0:
+            info_extra = "\n(Интервал закрытый с учётом рефракции: H(g) <= 0)"
         else:
-            info_extra = ""
+            info_extra = "\n(Интервал закрытый, дополнительные расчёты не выполнены)"
 
         info_text = info_base + info_extra
-
         ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
                   fontsize=9, verticalalignment='top',
                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -412,18 +441,3 @@ class RadioApp(ctk.CTk):
         canvas_p.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
         canvas_p.get_tk_widget().configure(bg='#FFFFFF', highlightthickness=0)
         canvas_p.draw()
-
-    def _calc_open_loss(self, h0, phi3):
-        """Расчёт затухания для открытого интервала по графику рис. 3.24 (для phi3=0.8)"""
-        # Оцифровка для phi3=0.8
-        h0_vals = [1.0, 1.2, 1.35, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
-        w_vals = [0, -1, -3.4, -5, -12, -20, -28, -31, -32, -32]
-        if h0 <= h0_vals[0]:
-            return w_vals[0]
-        if h0 >= h0_vals[-1]:
-            return w_vals[-1]
-        for i in range(len(h0_vals) - 1):
-            if h0_vals[i] <= h0 <= h0_vals[i + 1]:
-                t = (h0 - h0_vals[i]) / (h0_vals[i + 1] - h0_vals[i])
-                return w_vals[i] + t * (w_vals[i + 1] - w_vals[i])
-        return 0
