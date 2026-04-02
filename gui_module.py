@@ -149,22 +149,32 @@ class RadioApp(ctk.CTk):
         if len(self.points) < 2 or self.hgt_path is None:
             return
 
+        # Получаем профиль и расстояния вдоль трассы
         dist, elev = app_logic.get_elevation_profile(self.hgt_path, self.points[0], self.points[1])
         total_dist = dist[-1]
+
+        # === НОВОЕ: точное расстояние между точками ===
+        distance = app_logic.haversine(self.points[0], self.points[1])  # в метрах
 
         try:
             h1, h2 = float(self.h1_entry.get()), float(self.h2_entry.get())
             f_frenel, f_max = float(self.f_frenel_entry.get()), float(self.f_max_entry.get())
+            reliability = float(self.reliability_entry.get())
+            power = float(self.power_entry.get())
+            sensitivity = float(self.sensitivity_entry.get())
+            feeder_loss = float(self.feeder_loss_entry.get())
+            ant_diam = float(self.ant_diam_entry.get())
+            ant_type = self.ant_type_var.get()
         except ValueError:
             h1, h2, f_frenel, f_max = 15, 15, 2.4, 2400
+            reliability, power, sensitivity, feeder_loss, ant_diam = 99.9, 1.0, -90, 3.0, 0.6
+            ant_type = "Однозеркальная (η=0.6)"
 
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
 
-        # Координаты антенн
         ground_start, ground_end = elev_curved[0], elev_curved[-1]
         ant_start, ant_end = ground_start + h1, ground_end + h2
-
         los_line = np.linspace(ant_start, ant_end, len(dist))
         f_radius = app_logic.get_fresnel_zone(dist, total_dist, f_frenel)
 
@@ -185,15 +195,14 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
-        # Отрисовка антенных мачт
+        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # ФИКСАЦИЯ ОСЕЙ (Начало координат)
+        # Оси
         ax_p.set_xlim(0, total_dist)
-        # Устанавливаем минимум (море или яма) и максимум (антенна + запас)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
         ax_p.set_ylim(y_min, y_max)
@@ -203,6 +212,23 @@ class RadioApp(ctk.CTk):
         ax_p.set_ylabel("Высота (м)")
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
+
+        # === НОВОЕ: текстовая информация о параметрах ===
+        info_text = (
+            f"Длина трассы: {distance / 1000:.2f} км\n"
+            f"Высоты антенн: {h1} м / {h2} м\n"
+            f"Частота Fresnel: {f_frenel} ГГц\n"
+            f"Рабочая частота: {f_max} МГц\n"
+            f"Надёжность: {reliability}%\n"
+            f"Мощность: {power} Вт\n"
+            f"Чувствительность: {sensitivity} дБм\n"
+            f"Затухание фидера: {feeder_loss} дБ\n"
+            f"Антенна: {ant_type} (d={ant_diam} м)"
+        )
+        # Размещаем текст в левом верхнем углу внутри графика
+        ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
+                  fontsize=9, verticalalignment='top',
+                  bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
         canvas_p = FigureCanvasTkAgg(fig_p, master=top)
         canvas_p.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
