@@ -166,10 +166,13 @@ class RadioApp(ctk.CTk):
             reliability, power, sensitivity, feeder_loss, ant_diam = 99.9, 1.0, -90, 3.0, 0.6
             ant_type = "Однозеркальная (η=0.6)"
 
-        # Переводим МГц в ГГц для зоны Френеля
         freq_ghz = freq_mhz / 1000.0
-
         wavelength = 0.3 / freq_ghz
+
+        # Коэффициент усиления антенны
+        ant_efficiency = 0.6 if "Однозеркальная" in ant_type else 0.7
+        G_linear = (np.pi * ant_diam) ** 2 * ant_efficiency / (wavelength ** 2)
+        G_dBi = 10 * np.log10(G_linear) if G_linear > 0 else -np.inf
 
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
@@ -213,9 +216,10 @@ class RadioApp(ctk.CTk):
 
         info_text = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
-            f"Длина волны: {wavelength:.3f} м\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
             f"Рабочая частота: {freq_mhz} МГц\n"
+            f"Длина волны: {wavelength:.3f} м\n"
+            f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Надёжность: {reliability}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
