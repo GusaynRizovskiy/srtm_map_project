@@ -206,11 +206,11 @@ class RadioApp(ctk.CTk):
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # ----- Поиск ближайшей точки рельефа к LOS и перпендикуляр -----
+        # ----- Определение типа интервала и визуализация -----
         clearances = los_line - elev_curved
-        positive_clearances = np.where(clearances > 0, clearances, np.inf)
-        min_clearance_idx = np.argmin(positive_clearances)
-        if positive_clearances[min_clearance_idx] != np.inf:
+        if np.min(clearances) >= 0:  # Полуоткрытый интервал (LOS выше рельефа)
+            # Ищем точку с минимальным просветом
+            min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
             x1, y1 = dist[0], ant_start
@@ -227,6 +227,10 @@ class RadioApp(ctk.CTk):
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Ближайшая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+        else:
+            # Закрытый интервал: выводим предупреждение
+            ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
+                      transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
         # ----- Оформление осей и легенды -----
         ax_p.set_xlim(0, total_dist)
