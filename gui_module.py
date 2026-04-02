@@ -167,16 +167,14 @@ class RadioApp(ctk.CTk):
             ant_type = "Однозеркальная (η=0.6)"
 
         freq_ghz = freq_mhz / 1000.0
-        wavelength = 0.3 / freq_ghz  # в метрах
+        wavelength = 0.3 / freq_ghz
 
-        # Коэффициент усиления антенны
         ant_efficiency = 0.6 if "Однозеркальная" in ant_type else 0.7
         G_linear = (np.pi * ant_diam) ** 2 * ant_efficiency / (wavelength ** 2)
         G_dBi = 10 * np.log10(G_linear) if G_linear > 0 else -np.inf
 
-        # Потери в свободном пространстве
         d_km = distance / 1000.0
-        free_space_loss = 122 + 20 * np.log10(d_km / wavelength)  # дБ
+        free_space_loss = 122 + 20 * np.log10(d_km / wavelength)
 
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
@@ -202,11 +200,35 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
+        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
+        # ----- Поиск ближайшей точки рельефа к LOS и перпендикуляр -----
+        clearances = los_line - elev_curved
+        positive_clearances = np.where(clearances > 0, clearances, np.inf)
+        min_clearance_idx = np.argmin(positive_clearances)
+        if positive_clearances[min_clearance_idx] != np.inf:
+            x0 = dist[min_clearance_idx]
+            y0 = elev_curved[min_clearance_idx]
+            x1, y1 = dist[0], ant_start
+            x2, y2 = dist[-1], ant_end
+            dx = x2 - x1
+            dy = y2 - y1
+            dx2 = dx * dx
+            dy2 = dy * dy
+            if dx2 + dy2 > 0:
+                t = ((x0 - x1) * dx + (y0 - y1) * dy) / (dx2 + dy2)
+                t = max(0, min(1, t))
+                x_proj = x1 + t * dx
+                y_proj = y1 + t * dy
+                ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
+                          label='Ближайшая точка рельефа')
+                ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+
+        # ----- Оформление осей и легенды -----
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
@@ -218,6 +240,7 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
+        # ----- Текстовая информация -----
         info_text = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
