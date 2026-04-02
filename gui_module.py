@@ -169,6 +169,8 @@ class RadioApp(ctk.CTk):
         # Переводим МГц в ГГц для зоны Френеля
         freq_ghz = freq_mhz / 1000.0
 
+        wavelength = 0.3 / freq_ghz
+
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
 
@@ -211,6 +213,7 @@ class RadioApp(ctk.CTk):
 
         info_text = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
+            f"Длина волны: {wavelength:.3f} м\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
             f"Рабочая частота: {freq_mhz} МГц\n"
             f"Надёжность: {reliability}%\n"
