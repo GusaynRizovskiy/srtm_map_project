@@ -156,6 +156,7 @@ class RadioApp(ctk.CTk):
             h1, h2 = float(self.h1_entry.get()), float(self.h2_entry.get())
             freq_mhz = float(self.freq_entry.get())
             reliability = float(self.reliability_entry.get())
+            intervals = float(self.intervals_entry.get())
             power = float(self.power_entry.get())
             sensitivity = float(self.sensitivity_entry.get())
             feeder_loss = float(self.feeder_loss_entry.get())
@@ -163,7 +164,7 @@ class RadioApp(ctk.CTk):
             ant_type = self.ant_type_var.get()
         except ValueError:
             h1, h2, freq_mhz = 15, 15, 2400
-            reliability, power, sensitivity, feeder_loss, ant_diam = 99.9, 1.0, -90, 3.0, 0.6
+            reliability, intervals, power, sensitivity, feeder_loss, ant_diam = 99.9, 1.0, 1.0, -90, 3.0, 0.6
             ant_type = "Однозеркальная (η=0.6)"
 
         freq_ghz = freq_mhz / 1000.0
@@ -184,6 +185,12 @@ class RadioApp(ctk.CTk):
         los_line = np.linspace(ant_start, ant_end, len(dist))
         f_radius = app_logic.get_fresnel_zone(dist, total_dist, freq_ghz)
 
+        # Коэффициент перерыва связи
+        if intervals > 0:
+            T_i_percent = (100 - reliability) / intervals
+        else:
+            T_i_percent = 0.0
+
         top = ctk.CTkToplevel(self)
         top.title("Технический профиль трассы")
         top.geometry("1100x600")
@@ -200,17 +207,15 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
-        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # ----- Определение типа интервала и расчёт параметров -----
         clearances = los_line - elev_curved
-        d1 = d2 = H0 = H_g = None  # инициализация
+        d1 = d2 = H0 = H_g = None
 
-        if np.min(clearances) >= 0:  # Полуоткрытый интервал
+        if np.min(clearances) >= 0:
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -225,32 +230,23 @@ class RadioApp(ctk.CTk):
                 t = max(0, min(1, t))
                 x_proj = x1 + t * dx
                 y_proj = y1 + t * dy
-                # Рисуем точку и перпендикуляр
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Ближайшая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
 
-                # Расчёт d1, d2
                 d1 = x_proj
                 d2 = total_dist - x_proj
-
-                # Радиус первой зоны Френеля в точке препятствия
                 H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
 
-                # Геометрический просвет с учётом реального радиуса Земли
-                R0 = 6370000.0  # радиус Земли, м
-                K = 4 / 3  # коэффициент рефракции
+                R0 = 6370000.0
+                K = 4 / 3
                 H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
-
-                # Приращение за счёт рефракции
-                delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)  # (1-1/K) = 0.25
+                delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)
                 H_g = H_geom + delta_H
         else:
-            # Закрытый интервал
             ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
                       transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
-        # ----- Оформление осей и легенды -----
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
@@ -262,7 +258,6 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
-        # ----- Текстовая информация -----
         info_base = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
@@ -270,7 +265,9 @@ class RadioApp(ctk.CTk):
             f"Длина волны: {wavelength:.3f} м\n"
             f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Потери в свободном пространстве: {free_space_loss:.1f} дБ\n"
-            f"Надёжность: {reliability}%\n"
+            f"Надёжность линии: {reliability}%\n"
+            f"Кол-во интервалов M: {intervals:.0f}\n"
+            f"Коэфф. перерыва связи T_i: {T_i_percent:.3f}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
             f"Затухание фидера: {feeder_loss} дБ\n"
