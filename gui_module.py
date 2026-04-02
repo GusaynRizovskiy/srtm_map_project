@@ -41,8 +41,7 @@ class RadioApp(ctk.CTk):
         self.h2_entry = self.create_field(self.geo_frame, "Высота подвеса А2 (м):", "15")
 
         self.freq_frame = self.create_group("2. Частотные характеристики")
-        self.f_frenel_entry = self.create_field(self.freq_frame, "Частота для зоны Френеля (ГГц):", "2.4")
-        self.f_max_entry = self.create_field(self.freq_frame, "Макс. рабочая частота f (МГц):", "2400")
+        self.freq_entry = self.create_field(self.freq_frame, "Рабочая частота f (МГц):", "2400")
 
         self.line_frame = self.create_group("3. Параметры линии")
         self.reliability_entry = self.create_field(self.line_frame, "Надежность линии (%):", "99.9")
@@ -149,16 +148,13 @@ class RadioApp(ctk.CTk):
         if len(self.points) < 2 or self.hgt_path is None:
             return
 
-        # Получаем профиль и расстояния вдоль трассы
         dist, elev = app_logic.get_elevation_profile(self.hgt_path, self.points[0], self.points[1])
         total_dist = dist[-1]
-
-        # === НОВОЕ: точное расстояние между точками ===
-        distance = app_logic.haversine(self.points[0], self.points[1])  # в метрах
+        distance = app_logic.haversine(self.points[0], self.points[1])
 
         try:
             h1, h2 = float(self.h1_entry.get()), float(self.h2_entry.get())
-            f_frenel, f_max = float(self.f_frenel_entry.get()), float(self.f_max_entry.get())
+            freq_mhz = float(self.freq_entry.get())
             reliability = float(self.reliability_entry.get())
             power = float(self.power_entry.get())
             sensitivity = float(self.sensitivity_entry.get())
@@ -166,9 +162,12 @@ class RadioApp(ctk.CTk):
             ant_diam = float(self.ant_diam_entry.get())
             ant_type = self.ant_type_var.get()
         except ValueError:
-            h1, h2, f_frenel, f_max = 15, 15, 2.4, 2400
+            h1, h2, freq_mhz = 15, 15, 2400
             reliability, power, sensitivity, feeder_loss, ant_diam = 99.9, 1.0, -90, 3.0, 0.6
             ant_type = "Однозеркальная (η=0.6)"
+
+        # Переводим МГц в ГГц для зоны Френеля
+        freq_ghz = freq_mhz / 1000.0
 
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
@@ -176,7 +175,7 @@ class RadioApp(ctk.CTk):
         ground_start, ground_end = elev_curved[0], elev_curved[-1]
         ant_start, ant_end = ground_start + h1, ground_end + h2
         los_line = np.linspace(ant_start, ant_end, len(dist))
-        f_radius = app_logic.get_fresnel_zone(dist, total_dist, f_frenel)
+        f_radius = app_logic.get_fresnel_zone(dist, total_dist, freq_ghz)
 
         top = ctk.CTkToplevel(self)
         top.title("Технический профиль трассы")
@@ -188,44 +187,38 @@ class RadioApp(ctk.CTk):
         ax_p.set_facecolor('#FCFCFC')
         ax_p.tick_params(colors='black')
 
-        # Отрисовка
         ax_p.fill_between(dist, earth_arc, -100, color='#ADD8E6', alpha=0.3, label='Кривизна Земли')
         ax_p.fill_between(dist, elev_curved, earth_arc, color='sienna', alpha=0.6, label='Рельеф')
         ax_p.fill_between(dist, los_line - f_radius, los_line + f_radius, color='yellow', alpha=0.3,
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
-        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # Оси
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
         ax_p.set_ylim(y_min, y_max)
 
-        ax_p.set_title(f"Профиль трассы (f = {f_max} МГц)", color='black')
+        ax_p.set_title(f"Профиль трассы (f = {freq_mhz} МГц)", color='black')
         ax_p.set_xlabel("Дистанция (м)")
         ax_p.set_ylabel("Высота (м)")
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
-        # === НОВОЕ: текстовая информация о параметрах ===
         info_text = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
-            f"Частота Fresnel: {f_frenel} ГГц\n"
-            f"Рабочая частота: {f_max} МГц\n"
+            f"Рабочая частота: {freq_mhz} МГц\n"
             f"Надёжность: {reliability}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
             f"Затухание фидера: {feeder_loss} дБ\n"
             f"Антенна: {ant_type} (d={ant_diam} м)"
         )
-        # Размещаем текст в левом верхнем углу внутри графика
         ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
                   fontsize=9, verticalalignment='top',
                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
