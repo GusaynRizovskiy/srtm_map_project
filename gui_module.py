@@ -206,11 +206,10 @@ class RadioApp(ctk.CTk):
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # Переменные для d1, d2, H0
-        d1 = d2 = H0 = np.nan
-
-        # ----- Определение типа интервала и визуализация -----
+        # ----- Определение типа интервала и расчёт параметров -----
         clearances = los_line - elev_curved
+        d1 = d2 = H0 = H_g = None  # инициализация
+
         if np.min(clearances) >= 0:  # Полуоткрытый интервал
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
@@ -226,19 +225,26 @@ class RadioApp(ctk.CTk):
                 t = max(0, min(1, t))
                 x_proj = x1 + t * dx
                 y_proj = y1 + t * dy
+                # Рисуем точку и перпендикуляр
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Ближайшая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
 
-                # Расчёт d1, d2, H0
+                # Расчёт d1, d2
                 d1 = x_proj
-                d2 = total_dist - d1
-                if d1 > 0 and d2 > 0:
-                    H0 = np.sqrt(wavelength * d1 * d2 / total_dist)
-                else:
-                    H0 = np.nan
-            else:
-                d1 = d2 = H0 = np.nan
+                d2 = total_dist - x_proj
+
+                # Радиус первой зоны Френеля в точке препятствия
+                H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
+
+                # Геометрический просвет с учётом реального радиуса Земли
+                R0 = 6370000.0  # радиус Земли, м
+                K = 4 / 3  # коэффициент рефракции
+                H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
+
+                # Приращение за счёт рефракции
+                delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)  # (1-1/K) = 0.25
+                H_g = H_geom + delta_H
         else:
             # Закрытый интервал
             ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
@@ -256,30 +262,30 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
-        # ----- Формирование текстовой информации -----
-        if np.isnan(H0):
-            d1_str = d2_str = H0_str = "—"
-        else:
-            d1_str = f"{d1 / 1000:.2f} км ({d1:.0f} м)"
-            d2_str = f"{d2 / 1000:.2f} км ({d2:.0f} м)"
-            H0_str = f"{H0:.2f} м"
-
-        info_text = (
+        # ----- Текстовая информация -----
+        info_base = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
             f"Рабочая частота: {freq_mhz} МГц\n"
             f"Длина волны: {wavelength:.3f} м\n"
             f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Потери в свободном пространстве: {free_space_loss:.1f} дБ\n"
-            f"Расстояние d1 (передатчик → препятствие): {d1_str}\n"
-            f"Расстояние d2 (приёмник → препятствие): {d2_str}\n"
-            f"Радиус 1-й зоны Френеля в точке препятствия H0: {H0_str}\n"
             f"Надёжность: {reliability}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
             f"Затухание фидера: {feeder_loss} дБ\n"
             f"Антенна: {ant_type} (d={ant_diam} м)"
         )
+        if d1 is not None:
+            info_extra = (
+                f"\nd1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
+                f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
+                f"Фактический просвет H(g) = {H_g:.2f} м"
+            )
+        else:
+            info_extra = "\n(Интервал закрытый, расчёт просвета не выполнен)"
+        info_text = info_base + info_extra
+
         ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
                   fontsize=9, verticalalignment='top',
                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
