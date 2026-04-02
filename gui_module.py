@@ -185,12 +185,6 @@ class RadioApp(ctk.CTk):
         los_line = np.linspace(ant_start, ant_end, len(dist))
         f_radius = app_logic.get_fresnel_zone(dist, total_dist, freq_ghz)
 
-        # Коэффициент перерыва связи
-        if intervals > 0:
-            T_i_percent = (100 - reliability) / intervals
-        else:
-            T_i_percent = 0.0
-
         top = ctk.CTkToplevel(self)
         top.title("Технический профиль трассы")
         top.geometry("1100x600")
@@ -207,15 +201,20 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
+        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        clearances = los_line - elev_curved
-        d1 = d2 = H0 = H_g = None
+        # Переменные для дополнительных параметров
+        d1 = d2 = H0 = H_g = T_i = l = h = Wp = None
+        x_left = x_right = None  # для визуализации
 
-        if np.min(clearances) >= 0:
+        # ----- Определение типа интервала -----
+        clearances = los_line - elev_curved
+        if np.min(clearances) >= 0:  # Полуоткрытый интервал
+            # Находим точку минимального просвета
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -230,23 +229,131 @@ class RadioApp(ctk.CTk):
                 t = max(0, min(1, t))
                 x_proj = x1 + t * dx
                 y_proj = y1 + t * dy
+                # Рисуем точку и перпендикуляр
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Ближайшая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
 
+                # Расчёт d1, d2
                 d1 = x_proj
                 d2 = total_dist - x_proj
+
+                # Радиус первой зоны Френеля в точке препятствия (критический просвет)
                 H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
 
-                R0 = 6370000.0
-                K = 4 / 3
+                # Геометрический просвет с учётом рефракции
+                R0 = 6370000.0  # радиус Земли, м
+                K = 4 / 3  # коэффициент рефракции
                 H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
                 delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)
                 H_g = H_geom + delta_H
+
+                # Если фактический просвет неположительный – интервал закрытый с учётом рефракции
+                if H_g <= 0:
+                    d1 = d2 = H0 = H_g = T_i = l = h = Wp = None
+                else:
+                    # Коэффициент перерыва связи
+                    if intervals > 0:
+                        T_i = (100 - reliability) / intervals  # в процентах
+                    else:
+                        T_i = 0
+
+                    # ----- Расчёт затухания на рельеф Wp и визуализация -----
+                    critical_line = los_line - H0
+
+                    # Поиск всех пересечений рельефа с critical_line
+                    crosses = []
+                    for i in range(len(dist) - 1):
+                        diff1 = elev_curved[i] - critical_line[i]
+                        diff2 = elev_curved[i + 1] - critical_line[i + 1]
+                        if diff1 * diff2 < 0:
+                            x1c, x2c = dist[i], dist[i + 1]
+                            y1c, y2c = elev_curved[i], elev_curved[i + 1]
+                            yc1, yc2 = critical_line[i], critical_line[i + 1]
+                            denom = (y2c - y1c) - (yc2 - yc1)
+                            if abs(denom) > 1e-9:
+                                t_cross = (yc1 - y1c) / denom
+                                x_cross = x1c + t_cross * (x2c - x1c)
+                                crosses.append(x_cross)
+
+                    # Если пересечений не менее двух, выбираем пару, охватывающую точку минимума x0
+                    if len(crosses) >= 2:
+                        crosses.sort()
+                        left_cross = None
+                        right_cross = None
+                        for xc in crosses:
+                            if xc <= x0 and (left_cross is None or xc > left_cross):
+                                left_cross = xc
+                            if xc >= x0 and (right_cross is None or xc < right_cross):
+                                right_cross = xc
+                        if left_cross is not None and right_cross is not None and left_cross < right_cross:
+                            x_left = left_cross
+                            x_right = right_cross
+                            l = x_right - x_left
+                            # Находим максимальную высоту рельефа на [x_left, x_right]
+                            mask = (dist >= x_left) & (dist <= x_right)
+                            if np.any(mask):
+                                max_elev = np.max(elev_curved[mask])
+                                # Высота прямой mn в точке максимума
+                                y_left_crit = np.interp(x_left, dist, critical_line)
+                                y_right_crit = np.interp(x_right, dist, critical_line)
+                                x_max = dist[mask][np.argmax(elev_curved[mask])]
+                                if x_right - x_left > 0:
+                                    t_mn = (x_max - x_left) / (x_right - x_left)
+                                    y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
+                                    h = max_elev - y_mn
+                                else:
+                                    h = 0
+                            else:
+                                l, h = 0, 0
+                        else:
+                            l, h = 0, 0
+                    else:
+                        l, h = 0, 0
+
+                    # Если ширина или высота неположительны – препятствие не влияет
+                    if l <= 0 or h <= 0:
+                        Wp = 0.0
+                        l = 0
+                        h = 0
+                    else:
+                        # Относительный просвет
+                        p_rel = H_g / H0 if H0 > 0 else 0
+                        if p_rel < 1:
+                            Wp = 12 * (1 - p_rel) ** 2  # эмпирическая формула для острого препятствия
+                        else:
+                            Wp = 0.0
+
+                    # ----- Визуализация критического уровня и параметров препятствия -----
+                    # Линия LOS - H0
+                    ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
+                              label='LOS - H₀ (критический уровень)')
+                    # Если есть корректные пересечения, рисуем точки, прямую mn, ширину и высоту
+                    if l > 0 and h > 0 and x_left is not None and x_right is not None:
+                        y_left_crit = np.interp(x_left, dist, critical_line)
+                        y_right_crit = np.interp(x_right, dist, critical_line)
+                        # Точки пересечения
+                        ax_p.plot(x_left, y_left_crit, 'bo', markersize=6, label='Точки пересечения')
+                        ax_p.plot(x_right, y_right_crit, 'bo', markersize=6)
+                        # Прямая mn
+                        ax_p.plot([x_left, x_right], [y_left_crit, y_right_crit], 'g--', linewidth=1.5,
+                                  label='Прямая mn')
+                        # Горизонтальная стрелка ширины l
+                        ax_p.annotate('', xy=(x_left, y_left_crit - 5), xytext=(x_right, y_left_crit - 5),
+                                      arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
+                        ax_p.text((x_left + x_right) / 2, y_left_crit - 15, f'l = {l:.0f} м',
+                                  ha='center', fontsize=8, color='blue')
+                        # Вертикальная линия высоты h от прямой mn до вершины
+                        y_mn_at_x0 = np.interp(x0, [x_left, x_right], [y_left_crit, y_right_crit])
+                        ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
+                        ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
+                                  bbox=dict(facecolor='white', alpha=0.6))
         else:
+            # Закрытый интервал
             ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
                       transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
+        # ----- Оформление осей и легенды -----
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
@@ -258,6 +365,7 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
+        # ----- Текстовая информация -----
         info_base = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
@@ -265,22 +373,29 @@ class RadioApp(ctk.CTk):
             f"Длина волны: {wavelength:.3f} м\n"
             f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Потери в свободном пространстве: {free_space_loss:.1f} дБ\n"
-            f"Надёжность линии: {reliability}%\n"
+            f"Надёжность: {reliability}%\n"
             f"Кол-во интервалов M: {intervals:.0f}\n"
-            f"Коэфф. перерыва связи T_i: {T_i_percent:.3f}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
             f"Затухание фидера: {feeder_loss} дБ\n"
             f"Антенна: {ant_type} (d={ant_diam} м)"
         )
-        if d1 is not None:
+
+        if d1 is not None and H_g is not None and H_g > 0:
             info_extra = (
                 f"\nd1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
                 f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
-                f"Фактический просвет H(g) = {H_g:.2f} м"
+                f"Фактический просвет H(g) = {H_g:.2f} м\n"
+                f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                f"Протяжённость препятствия l = {l:.0f} м\n"
+                f"Высота препятствия h = {h:.1f} м\n"
+                f"Затухание на рельеф Wp = {Wp:.1f} дБ"
             )
+        elif d1 is not None and H_g is not None and H_g <= 0:
+            info_extra = "\n(Интервал закрытый с учётом рефракции: H(g) <= 0)"
         else:
-            info_extra = "\n(Интервал закрытый, расчёт просвета не выполнен)"
+            info_extra = "\n(Интервал закрытый, дополнительные расчёты не выполнены)"
+
         info_text = info_base + info_extra
 
         ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
