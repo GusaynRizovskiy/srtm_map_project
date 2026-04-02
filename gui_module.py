@@ -206,10 +206,12 @@ class RadioApp(ctk.CTk):
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
+        # Переменные для d1, d2, H0
+        d1 = d2 = H0 = np.nan
+
         # ----- Определение типа интервала и визуализация -----
         clearances = los_line - elev_curved
-        if np.min(clearances) >= 0:  # Полуоткрытый интервал (LOS выше рельефа)
-            # Ищем точку с минимальным просветом
+        if np.min(clearances) >= 0:  # Полуоткрытый интервал
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -227,8 +229,18 @@ class RadioApp(ctk.CTk):
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Ближайшая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+
+                # Расчёт d1, d2, H0
+                d1 = x_proj
+                d2 = total_dist - d1
+                if d1 > 0 and d2 > 0:
+                    H0 = np.sqrt(wavelength * d1 * d2 / total_dist)
+                else:
+                    H0 = np.nan
+            else:
+                d1 = d2 = H0 = np.nan
         else:
-            # Закрытый интервал: выводим предупреждение
+            # Закрытый интервал
             ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
                       transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
@@ -244,7 +256,14 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
-        # ----- Текстовая информация -----
+        # ----- Формирование текстовой информации -----
+        if np.isnan(H0):
+            d1_str = d2_str = H0_str = "—"
+        else:
+            d1_str = f"{d1 / 1000:.2f} км ({d1:.0f} м)"
+            d2_str = f"{d2 / 1000:.2f} км ({d2:.0f} м)"
+            H0_str = f"{H0:.2f} м"
+
         info_text = (
             f"Длина трассы: {distance / 1000:.2f} км\n"
             f"Высоты антенн: {h1} м / {h2} м\n"
@@ -252,6 +271,9 @@ class RadioApp(ctk.CTk):
             f"Длина волны: {wavelength:.3f} м\n"
             f"Коэфф. усиления антенны: {G_dBi:.1f} дБи\n"
             f"Потери в свободном пространстве: {free_space_loss:.1f} дБ\n"
+            f"Расстояние d1 (передатчик → препятствие): {d1_str}\n"
+            f"Расстояние d2 (приёмник → препятствие): {d2_str}\n"
+            f"Радиус 1-й зоны Френеля в точке препятствия H0: {H0_str}\n"
             f"Надёжность: {reliability}%\n"
             f"Мощность: {power} Вт\n"
             f"Чувствительность: {sensitivity} дБм\n"
