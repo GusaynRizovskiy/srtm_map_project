@@ -262,13 +262,13 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
-        # Мачты
-        ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
+        # Мачты – добавлена метка для отображения в легенде
+        ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3, label='Мачты')
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # --- Анализ интервала ---
+        # --- Анализ интервала (полностью сохранён) ---
         clearances = los_line - elev_curved
         if np.min(clearances) >= 0:  # LOS не пересекает рельеф -> открытый или полуоткрытый
             min_clearance_idx = np.argmin(clearances)
@@ -537,7 +537,7 @@ class RadioApp(ctk.CTk):
         else:
             results_label.configure(text="Интервал закрытый (LOS пересекает рельеф)")
 
-        # --- Оформление графика ---
+        # --- Оформление графика (изменена только легенда) ---
         ax_p.set_xlim(0, total_dist)
         y_min = min(0, np.min(earth_arc))
         y_max = max(ant_start, ant_end, np.max(elev_curved)) * 1.15
@@ -545,7 +545,10 @@ class RadioApp(ctk.CTk):
         ax_p.set_title(f"Профиль трассы (f = {freq_mhz} МГц)", color='black')
         ax_p.set_xlabel("Дистанция (м)")
         ax_p.set_ylabel("Высота (м)")
-        ax_p.legend(loc='upper right', frameon=True, facecolor='white')
+
+        # Исправленная легенда: автоматический выбор места, полупрозрачность, возможность перетаскивания
+        ax_p.legend(loc='best', frameon=True, facecolor='white', framealpha=0.7, fontsize=10, draggable=True)
+
         ax_p.grid(True, alpha=0.3, color='gray')
 
         # --- Встраивание графика ---
