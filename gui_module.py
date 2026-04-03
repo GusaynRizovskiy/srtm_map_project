@@ -210,7 +210,7 @@ class RadioApp(ctk.CTk):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Левая панель (scrollable)
-        left_frame = ctk.CTkScrollableFrame(main_frame, width=340, fg_color="#F2F2F2", corner_radius=10)
+        left_frame = ctk.CTkScrollableFrame(main_frame, width=360, fg_color="#F2F2F2", corner_radius=10)
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         # Правая область для графика
@@ -242,12 +242,12 @@ class RadioApp(ctk.CTk):
             f"Подстилающая поверхность: {self.surface_var.get()}"
         )
         ctk.CTkLabel(left_frame, text=left_text, justify="left", font=text_font, text_color="black",
-                     wraplength=320).pack(padx=10, pady=5, anchor="nw")
+                     wraplength=340).pack(padx=10, pady=5, anchor="nw")
 
         ctk.CTkLabel(left_frame, text="", height=10).pack()
         ctk.CTkLabel(left_frame, text="Результаты расчёта", font=bold_font).pack(pady=(10, 5))
         results_label = ctk.CTkLabel(left_frame, text="", justify="left", font=text_font, text_color="black",
-                                     wraplength=320)
+                                     wraplength=340)
         results_label.pack(padx=10, pady=5, anchor="nw")
 
         # --- График ---
@@ -268,13 +268,9 @@ class RadioApp(ctk.CTk):
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # --- Переменные для результатов ---
-        d1 = d2 = H0 = H_g = T_i = l = h = Wp = total_loss = P_prm_dbm = status = None
-        phi3 = D = l0 = delta_y = None
-
-        # --- Анализ интервала (весь ваш существующий код, только с обновлением results_label) ---
+        # --- Анализ интервала ---
         clearances = los_line - elev_curved
-        if np.min(clearances) >= 0:
+        if np.min(clearances) >= 0:  # LOS не пересекает рельеф -> открытый или полуоткрытый
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -295,246 +291,249 @@ class RadioApp(ctk.CTk):
                 H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
                 R0 = 6370000.0
                 K = 4 / 3
-                H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
+                # Геометрический просвет (без учёта рефракции)
+                H_geom = y_proj - y0
+                # Поправка на рефракцию
                 delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)
                 H_g = H_geom + delta_H
 
-                if H_g > 0:
-                    if intervals > 0:
-                        T_i = (100 - reliability) / intervals
+                if intervals > 0:
+                    T_i = (100 - reliability) / intervals
+                else:
+                    T_i = 0
+
+                # Определяем тип интервала по эффективному просвету H_g
+                if H_g >= H0:
+                    # ========== ОТКРЫТЫЙ ИНТЕРВАЛ ==========
+                    h0_rel = H_g / H0
+                    surface_text = self.surface_var.get()
+
+                    if wavelength_cm <= 30:
+                        phi_table = {
+                            "Малопересеченная равнина, пойменные луга, солончаки": 0.9,
+                            "Малопересеченная равнина, покрытая лесом": 0.7,
+                            "Среднепересеченная открытая местность": 0.5,
+                            "Среднепересеченная местность, покрытая лесом": 0.3
+                        }
                     else:
-                        T_i = 0
+                        phi_table = {
+                            "Малопересеченная равнина, пойменные луга, солончаки": 0.95,
+                            "Малопересеченная равнина, покрытая лесом": 0.9,
+                            "Среднепересеченная открытая местность": 0.7,
+                            "Среднепересеченная местность, покрытая лесом": 0.6
+                        }
+                    phi = phi_table.get(surface_text, 0.8)
 
-                    if H_g >= H0:
-                        # ----- ОТКРЫТЫЙ ИНТЕРВАЛ -----
-                        h0_rel = H_g / H0
-                        surface_text = self.surface_var.get()
-
-                        if wavelength_cm <= 30:
-                            phi_table = {
-                                "Малопересеченная равнина, пойменные луга, солончаки": 0.9,
-                                "Малопересеченная равнина, покрытая лесом": 0.7,
-                                "Среднепересеченная открытая местность": 0.5,
-                                "Среднепересеченная местность, покрытая лесом": 0.3
-                            }
-                        else:
-                            phi_table = {
-                                "Малопересеченная равнина, пойменные луга, солончаки": 0.95,
-                                "Малопересеченная равнина, покрытая лесом": 0.9,
-                                "Среднепересеченная открытая местность": 0.7,
-                                "Среднепересеченная местность, покрытая лесом": 0.6
-                            }
-                        phi = phi_table.get(surface_text, 0.8)
-
-                        # Поиск участка отражения
-                        critical_line = los_line - H0
-                        crosses = []
-                        for i in range(len(dist) - 1):
-                            diff1 = elev_curved[i] - critical_line[i]
-                            diff2 = elev_curved[i + 1] - critical_line[i + 1]
-                            if diff1 * diff2 < 0:
-                                x1c, x2c = dist[i], dist[i + 1]
-                                y1c, y2c = elev_curved[i], elev_curved[i + 1]
-                                yc1, yc2 = critical_line[i], critical_line[i + 1]
-                                denom = (y2c - y1c) - (yc2 - yc1)
-                                if abs(denom) > 1e-9:
-                                    t_cross = (yc1 - y1c) / denom
-                                    x_cross = x1c + t_cross * (x2c - x1c)
-                                    crosses.append(x_cross)
-                        l0 = 0
-                        delta_y = 0
-                        left_cross = right_cross = None
-                        if len(crosses) >= 2:
-                            crosses.sort()
-                            left_cross = None
-                            right_cross = None
-                            for xc in crosses:
-                                if xc <= x0 and (left_cross is None or xc > left_cross):
-                                    left_cross = xc
-                                if xc >= x0 and (right_cross is None or xc < right_cross):
-                                    right_cross = xc
-                            if left_cross is not None and right_cross is not None and left_cross < right_cross:
-                                l0 = right_cross - left_cross
-                                mask = (dist >= left_cross) & (dist <= right_cross)
-                                if np.any(mask):
-                                    max_elev = np.max(elev_curved[mask])
-                                    y_left_crit = np.interp(left_cross, dist, critical_line)
-                                    y_right_crit = np.interp(right_cross, dist, critical_line)
-                                    x_max = dist[mask][np.argmax(elev_curved[mask])]
-                                    if l0 > 0:
-                                        t_mn = (x_max - left_cross) / l0
-                                        y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
-                                        delta_y = max_elev - y_mn
-                        if l0 > 0 and delta_y > 0:
-                            a = (l0 ** 2) / (8 * delta_y)
-                            a = np.clip(a, 100, 100_000_000)
-                        else:
-                            a = 1e9
-
-                        R = total_dist
-                        R1 = d1
-                        H = H_g
-                        if a > 0 and H0 > 0 and R > 0:
-                            term = (2 * R1 * (R - R1)) / (a * R) * (H / H0)
-                            term = max(0, term)
-                            D = 1.0 / np.sqrt(1 + term)
-                        else:
-                            D = 1.0
-
-                        phi3 = phi * D if D < 0.95 else phi
-
-                        cos_term = np.cos((np.pi / 3) * (h0_rel ** 2))
-                        cos_term = np.clip(cos_term, -1.0, 1.0)
-                        Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
-                        if np.isnan(Wp) or Wp > 50:
-                            Wp = 50.0
-
-                        total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
-                        P_tx_dbm = 10 * np.log10(power * 1000)
-                        P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
-                        status = "ПРИГОДЕН" if P_prm_dbm >= sensitivity else "НЕ ПРИГОДЕН"
-
-                        # Результаты для отображения
-                        result_text = (
-                            f"d1 = {d1:.0f} м\nd2 = {d2:.0f} м\n"
-                            f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
-                            f"Фактический просвет H(g) = {H_g:.2f} м\n"
-                            f"Относительный просвет h0 = {h0_rel:.3f}\n"
-                            f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
-                            f"Тип поверхности: {surface_text}\n"
-                            f"Протяжённость участка отражения l0 = {l0:.0f} м\n"
-                            f"Коэфф. расходимости D = {D:.4f}\n"
-                            f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
-                            f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
-                            f"Суммарные потери: {total_loss:.1f} дБ\n"
-                            f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
-                            f"Статус интервала: {status}"
-                        )
-                        results_label.configure(text=result_text)
-
-                        # Визуализация для открытого интервала
-                        if l0 > 0 and delta_y > 0 and left_cross is not None and right_cross is not None:
-                            y_left_crit = np.interp(left_cross, dist, critical_line)
-                            y_right_crit = np.interp(right_cross, dist, critical_line)
-                            ax_p.plot(left_cross, y_left_crit, 'bo', markersize=6, label='Границы участка отражения')
-                            ax_p.plot(right_cross, y_right_crit, 'bo', markersize=6)
-                            ax_p.plot([left_cross, right_cross], [y_left_crit, y_right_crit], 'g-', linewidth=2,
-                                      label=f'Хорда l₀ = {l0:.0f} м')
+                    # Поиск участка отражения (пересечения LOS-H0 с рельефом)
+                    critical_line = los_line - H0
+                    crosses = []
+                    for i in range(len(dist) - 1):
+                        diff1 = elev_curved[i] - critical_line[i]
+                        diff2 = elev_curved[i + 1] - critical_line[i + 1]
+                        if diff1 * diff2 < 0:
+                            x1c, x2c = dist[i], dist[i + 1]
+                            y1c, y2c = elev_curved[i], elev_curved[i + 1]
+                            yc1, yc2 = critical_line[i], critical_line[i + 1]
+                            denom = (y2c - y1c) - (yc2 - yc1)
+                            if abs(denom) > 1e-9:
+                                t_cross = (yc1 - y1c) / denom
+                                x_cross = x1c + t_cross * (x2c - x1c)
+                                crosses.append(x_cross)
+                    l0 = 0
+                    delta_y = 0
+                    left_cross = right_cross = None
+                    if len(crosses) >= 2:
+                        crosses.sort()
+                        left_cross = None
+                        right_cross = None
+                        for xc in crosses:
+                            if xc <= x0 and (left_cross is None or xc > left_cross):
+                                left_cross = xc
+                            if xc >= x0 and (right_cross is None or xc < right_cross):
+                                right_cross = xc
+                        if left_cross is not None and right_cross is not None and left_cross < right_cross:
+                            l0 = right_cross - left_cross
                             mask = (dist >= left_cross) & (dist <= right_cross)
                             if np.any(mask):
-                                max_idx = np.argmax(elev_curved[mask])
-                                x_max = dist[mask][max_idx]
-                                y_max = elev_curved[mask][max_idx]
-                                y_chord = np.interp(x_max, [left_cross, right_cross], [y_left_crit, y_right_crit])
-                                ax_p.plot([x_max, x_max], [y_chord, y_max], 'r-', linewidth=2,
-                                          label=f'Δy = {delta_y:.1f} м')
-                                ax_p.plot(x_max, y_max, 'ro', markersize=6, label='Вершина отражающего участка')
-                            if a < 5e5:
-                                center_x = (left_cross + right_cross) / 2
-                                chord_half = l0 / 2
-                                if a > chord_half:
-                                    alpha = np.arcsin(chord_half / a)
-                                    theta = np.linspace(-alpha, alpha, 50)
-                                    center_y = y_left_crit + a - np.sqrt(a ** 2 - chord_half ** 2)
-                                    x_arc = center_x + a * np.sin(theta)
-                                    y_arc = center_y - a * np.cos(theta)
-                                    ax_p.plot(x_arc, y_arc, 'm--', linewidth=1.5, alpha=0.7,
-                                              label=f'Радиус a = {a / 1000:.1f} км')
-                                    ax_p.plot(center_x, center_y, 'mx', markersize=5)
-
+                                max_elev = np.max(elev_curved[mask])
+                                y_left_crit = np.interp(left_cross, dist, critical_line)
+                                y_right_crit = np.interp(right_cross, dist, critical_line)
+                                x_max = dist[mask][np.argmax(elev_curved[mask])]
+                                if l0 > 0:
+                                    t_mn = (x_max - left_cross) / l0
+                                    y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
+                                    delta_y = max_elev - y_mn
+                    if l0 > 0 and delta_y > 0:
+                        a = (l0 ** 2) / (8 * delta_y)
+                        a = np.clip(a, 100, 100_000_000)
                     else:
-                        # ----- ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ -----
-                        ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
-                                  label='Ближайшая точка рельефа')
-                        ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+                        a = 1e9
 
-                        critical_line = los_line - H0
-                        crosses = []
-                        for i in range(len(dist) - 1):
-                            diff1 = elev_curved[i] - critical_line[i]
-                            diff2 = elev_curved[i + 1] - critical_line[i + 1]
-                            if diff1 * diff2 < 0:
-                                x1c, x2c = dist[i], dist[i + 1]
-                                y1c, y2c = elev_curved[i], elev_curved[i + 1]
-                                yc1, yc2 = critical_line[i], critical_line[i + 1]
-                                denom = (y2c - y1c) - (yc2 - yc1)
-                                if abs(denom) > 1e-9:
-                                    t_cross = (yc1 - y1c) / denom
-                                    x_cross = x1c + t_cross * (x2c - x1c)
-                                    crosses.append(x_cross)
+                    R = total_dist
+                    R1 = d1
+                    H = H_g
+                    if a > 0 and H0 > 0 and R > 0:
+                        term = (2 * R1 * (R - R1)) / (a * R) * (H / H0)
+                        term = max(0, term)
+                        D = 1.0 / np.sqrt(1 + term)
+                    else:
+                        D = 1.0
+
+                    phi3 = phi * D if D < 0.95 else phi
+
+                    cos_term = np.cos((np.pi / 3) * (h0_rel ** 2))
+                    cos_term = np.clip(cos_term, -1.0, 1.0)
+                    Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
+                    if np.isnan(Wp) or Wp > 50:
+                        Wp = 50.0
+
+                    total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
+                    P_tx_dbm = 10 * np.log10(power * 1000)
+                    P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
+                    status = "ПРИГОДЕН" if P_prm_dbm >= sensitivity else "НЕ ПРИГОДЕН"
+
+                    result_text = (
+                        f"d1 = {d1:.0f} м\nd2 = {d2:.0f} м\n"
+                        f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
+                        f"Фактический просвет H(g) = {H_g:.2f} м\n"
+                        f"Относительный просвет h0 = {h0_rel:.3f}\n"
+                        f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                        f"Тип поверхности: {surface_text}\n"
+                        f"Протяжённость участка отражения l0 = {l0:.0f} м\n"
+                        f"Коэфф. расходимости D = {D:.4f}\n"
+                        f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
+                        f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
+                        f"Суммарные потери: {total_loss:.1f} дБ\n"
+                        f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
+                        f"Статус интервала: {status}"
+                    )
+                    results_label.configure(text=result_text)
+
+                    # Визуализация для открытого интервала (если есть отражающий участок)
+                    if l0 > 0 and delta_y > 0 and left_cross is not None and right_cross is not None:
+                        y_left_crit = np.interp(left_cross, dist, critical_line)
+                        y_right_crit = np.interp(right_cross, dist, critical_line)
+                        ax_p.plot(left_cross, y_left_crit, 'bo', markersize=6, label='Границы участка отражения')
+                        ax_p.plot(right_cross, y_right_crit, 'bo', markersize=6)
+                        ax_p.plot([left_cross, right_cross], [y_left_crit, y_right_crit], 'g-', linewidth=2,
+                                  label=f'Хорда l₀ = {l0:.0f} м')
+                        mask = (dist >= left_cross) & (dist <= right_cross)
+                        if np.any(mask):
+                            max_idx = np.argmax(elev_curved[mask])
+                            x_max = dist[mask][max_idx]
+                            y_max = elev_curved[mask][max_idx]
+                            y_chord = np.interp(x_max, [left_cross, right_cross], [y_left_crit, y_right_crit])
+                            ax_p.plot([x_max, x_max], [y_chord, y_max], 'r-', linewidth=2,
+                                      label=f'Δy = {delta_y:.1f} м')
+                            ax_p.plot(x_max, y_max, 'ro', markersize=6, label='Вершина отражающего участка')
+                        if a < 5e5:
+                            center_x = (left_cross + right_cross) / 2
+                            chord_half = l0 / 2
+                            if a > chord_half:
+                                alpha = np.arcsin(chord_half / a)
+                                theta = np.linspace(-alpha, alpha, 50)
+                                center_y = y_left_crit + a - np.sqrt(a ** 2 - chord_half ** 2)
+                                x_arc = center_x + a * np.sin(theta)
+                                y_arc = center_y - a * np.cos(theta)
+                                ax_p.plot(x_arc, y_arc, 'm--', linewidth=1.5, alpha=0.7,
+                                          label=f'Радиус a = {a / 1000:.1f} км')
+                                ax_p.plot(center_x, center_y, 'mx', markersize=5)
+
+                else:
+                    # ========== ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ ==========
+                    # Рисуем перпендикуляр и точку
+                    ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
+                              label='Ближайшая точка рельефа')
+                    ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
+
+                    critical_line = los_line - H0
+                    # Поиск пересечений
+                    crosses = []
+                    for i in range(len(dist) - 1):
+                        diff1 = elev_curved[i] - critical_line[i]
+                        diff2 = elev_curved[i + 1] - critical_line[i + 1]
+                        if diff1 * diff2 < 0:
+                            x1c, x2c = dist[i], dist[i + 1]
+                            y1c, y2c = elev_curved[i], elev_curved[i + 1]
+                            yc1, yc2 = critical_line[i], critical_line[i + 1]
+                            denom = (y2c - y1c) - (yc2 - yc1)
+                            if abs(denom) > 1e-9:
+                                t_cross = (yc1 - y1c) / denom
+                                x_cross = x1c + t_cross * (x2c - x1c)
+                                crosses.append(x_cross)
+
+                    l = 0
+                    h = 0
+                    if len(crosses) >= 2:
+                        crosses.sort()
+                        left_cross = None
+                        right_cross = None
+                        for xc in crosses:
+                            if xc <= x0 and (left_cross is None or xc > left_cross):
+                                left_cross = xc
+                            if xc >= x0 and (right_cross is None or xc < right_cross):
+                                right_cross = xc
+                        if left_cross is not None and right_cross is not None and left_cross < right_cross:
+                            l = right_cross - left_cross
+                            mask = (dist >= left_cross) & (dist <= right_cross)
+                            if np.any(mask):
+                                max_elev = np.max(elev_curved[mask])
+                                y_left_crit = np.interp(left_cross, dist, critical_line)
+                                y_right_crit = np.interp(right_cross, dist, critical_line)
+                                x_max = dist[mask][np.argmax(elev_curved[mask])]
+                                if l > 0:
+                                    t_mn = (x_max - left_cross) / l
+                                    y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
+                                    h = max_elev - y_mn
+
+                    if l <= 0 or h <= 0:
+                        Wp = 0.0
                         l = 0
                         h = 0
-                        if len(crosses) >= 2:
-                            crosses.sort()
-                            left_cross = None
-                            right_cross = None
-                            for xc in crosses:
-                                if xc <= x0 and (left_cross is None or xc > left_cross):
-                                    left_cross = xc
-                                if xc >= x0 and (right_cross is None or xc < right_cross):
-                                    right_cross = xc
-                            if left_cross is not None and right_cross is not None and left_cross < right_cross:
-                                l = right_cross - left_cross
-                                mask = (dist >= left_cross) & (dist <= right_cross)
-                                if np.any(mask):
-                                    max_elev = np.max(elev_curved[mask])
-                                    y_left_crit = np.interp(left_cross, dist, critical_line)
-                                    y_right_crit = np.interp(right_cross, dist, critical_line)
-                                    x_max = dist[mask][np.argmax(elev_curved[mask])]
-                                    if l > 0:
-                                        t_mn = (x_max - left_cross) / l
-                                        y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
-                                        h = max_elev - y_mn
-                        if l <= 0 or h <= 0:
-                            Wp = 0.0
-                            l = 0
-                            h = 0
+                    else:
+                        p_rel = H_geom / H0 if H0 > 0 else 0
+                        if p_rel < 1:
+                            Wp = 12 * (1 - p_rel) ** 2
                         else:
-                            p_rel = H_g / H0 if H0 > 0 else 0
-                            if p_rel < 1:
-                                Wp = 12 * (1 - p_rel) ** 2
-                            else:
-                                Wp = 0.0
+                            Wp = 0.0
 
-                        total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
-                        P_tx_dbm = 10 * np.log10(power * 1000)
-                        P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
-                        status = "ПРИГОДЕН" if P_prm_dbm >= sensitivity else "НЕ ПРИГОДЕН"
+                    total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
+                    P_tx_dbm = 10 * np.log10(power * 1000)
+                    P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
+                    status = "ПРИГОДЕН" if P_prm_dbm >= sensitivity else "НЕ ПРИГОДЕН"
 
-                        result_text = (
-                            f"d1 = {d1:.0f} м\nd2 = {d2:.0f} м\n"
-                            f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
-                            f"Фактический просвет H(g) = {H_g:.2f} м\n"
-                            f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
-                            f"Протяжённость препятствия l = {l:.0f} м\n"
-                            f"Высота препятствия h = {h:.1f} м\n"
-                            f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
-                            f"Суммарные потери: {total_loss:.1f} дБ\n"
-                            f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
-                            f"Статус интервала: {status}"
-                        )
-                        results_label.configure(text=result_text)
+                    result_text = (
+                        f"d1 = {d1:.0f} м\nd2 = {d2:.0f} м\n"
+                        f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
+                        f"Геометрический просвет H(geom) = {H_geom:.2f} м\n"
+                        f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                        f"Протяжённость препятствия l = {l:.0f} м\n"
+                        f"Высота препятствия h = {h:.1f} м\n"
+                        f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
+                        f"Суммарные потери: {total_loss:.1f} дБ\n"
+                        f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
+                        f"Статус интервала: {status}"
+                    )
+                    results_label.configure(text=result_text)
 
-                        # Визуализация для полуоткрытого интервала
-                        ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
-                                  label='LOS - H₀ (критический уровень)')
-                        if l > 0 and h > 0 and left_cross is not None and right_cross is not None:
-                            y_left_crit = np.interp(left_cross, dist, critical_line)
-                            y_right_crit = np.interp(right_cross, dist, critical_line)
-                            ax_p.plot(left_cross, y_left_crit, 'bo', markersize=6, label='Точки пересечения')
-                            ax_p.plot(right_cross, y_right_crit, 'bo', markersize=6)
-                            ax_p.plot([left_cross, right_cross], [y_left_crit, y_right_crit], 'g--', linewidth=1.5,
-                                      label='Прямая mn')
-                            ax_p.annotate('', xy=(left_cross, y_left_crit - 5), xytext=(right_cross, y_left_crit - 5),
-                                          arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
-                            ax_p.text((left_cross + right_cross) / 2, y_left_crit - 15, f'l = {l:.0f} м',
-                                      ha='center', fontsize=8, color='blue')
-                            y_mn_at_x0 = np.interp(x0, [left_cross, right_cross], [y_left_crit, y_right_crit])
-                            ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
-                            ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
-                                      bbox=dict(facecolor='white', alpha=0.6))
-                else:
-                    results_label.configure(text="Интервал закрытый (LOS пересекает рельеф с учётом рефракции)")
+                    # Визуализация для полуоткрытого интервала
+                    ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
+                              label='LOS - H₀ (критический уровень)')
+                    if l > 0 and h > 0 and left_cross is not None and right_cross is not None:
+                        y_left_crit = np.interp(left_cross, dist, critical_line)
+                        y_right_crit = np.interp(right_cross, dist, critical_line)
+                        ax_p.plot(left_cross, y_left_crit, 'bo', markersize=6, label='Точки пересечения')
+                        ax_p.plot(right_cross, y_right_crit, 'bo', markersize=6)
+                        ax_p.plot([left_cross, right_cross], [y_left_crit, y_right_crit], 'g--', linewidth=1.5,
+                                  label='Прямая mn')
+                        ax_p.annotate('', xy=(left_cross, y_left_crit - 5), xytext=(right_cross, y_left_crit - 5),
+                                      arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
+                        ax_p.text((left_cross + right_cross) / 2, y_left_crit - 15, f'l = {l:.0f} м',
+                                  ha='center', fontsize=8, color='blue')
+                        y_mn_at_x0 = np.interp(x0, [left_cross, right_cross], [y_left_crit, y_right_crit])
+                        ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
+                        ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
+                                  bbox=dict(facecolor='white', alpha=0.6))
         else:
             results_label.configure(text="Интервал закрытый (LOS пересекает рельеф)")
 
