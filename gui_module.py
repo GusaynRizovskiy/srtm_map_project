@@ -171,6 +171,7 @@ class RadioApp(ctk.CTk):
             reliability = float(self.reliability_entry.get())
             intervals = float(self.intervals_entry.get())
             power = float(self.power_entry.get())
+            power_dbm = 10 * np.log10(power * 1000)  # перевод Вт -> дБм
             sensitivity = float(self.sensitivity_entry.get())
             feeder_loss = float(self.feeder_loss_entry.get())
             ant_diam = float(self.ant_diam_entry.get())
@@ -364,6 +365,7 @@ class RadioApp(ctk.CTk):
                         if np.isnan(Wp) or Wp > 50:
                             Wp = 50.0
                         total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
+                        P_rx = power_dbm + 2 * G_dBi - total_loss
                         l = 0
                         h = 0
                         # ----- Визуализация для открытого интервала -----
@@ -481,6 +483,7 @@ class RadioApp(ctk.CTk):
                             else:
                                 Wp = 0.0
                             total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
+                            P_rx = power_dbm + 2 * G_dBi - total_loss
                         # Визуализация для полуоткрытого интервала
                         ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
                                   label='LOS - H₀ (критический уровень)')
@@ -548,7 +551,8 @@ class RadioApp(ctk.CTk):
                     f"Коэфф. расходимости D = {D:.4f}\n"
                     f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
                     f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
-                    f"Суммарные потери: {total_loss:.1f} дБ"
+                    f"Суммарные потери: {total_loss:.1f} дБ\n"
+                    f"Уровень сигнала на входе приёмника: {P_rx:.1f} дБм"
                 )
             else:
                 info_extra = (
@@ -557,7 +561,8 @@ class RadioApp(ctk.CTk):
                     f"Фактический просвет H(g) = {H_g:.2f} м\n"
                     f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
                     f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
-                    f"Суммарные потери: {total_loss:.1f} дБ"
+                    f"Суммарные потери: {total_loss:.1f} дБ\n"
+                    f"Уровень сигнала на входе приёмника: {P_rx:.1f} дБм"
                 )
         elif d1 is not None and H_g is not None and H_g <= 0:
             info_extra = "\n(Интервал закрытый с учётом рефракции: H(g) <= 0)"
