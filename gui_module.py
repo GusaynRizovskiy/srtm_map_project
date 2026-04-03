@@ -222,8 +222,8 @@ class RadioApp(ctk.CTk):
         main_frame.grid_rowconfigure(0, weight=1)
 
         # Шрифты
-        text_font = ("Segoe UI", 11)
-        bold_font = ("Segoe UI", 13, "bold")
+        text_font = ("Segoe UI", 13)
+        bold_font = ("Segoe UI", 14, "bold")
 
         # --- Исходные данные ---
         ctk.CTkLabel(left_frame, text="Исходные данные", font=bold_font).pack(pady=(10, 5))
