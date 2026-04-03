@@ -191,6 +191,8 @@ class RadioApp(ctk.CTk):
         d_km = distance / 1000.0
         free_space_loss = 122 + 20 * np.log10(d_km / wavelength)
 
+        refraction_loss = 0.0  # потери за счет рефракции (пока не рассчитываем)
+
         earth_arc = app_logic.get_earth_arc(dist)
         elev_curved = elev + earth_arc
 
@@ -361,6 +363,7 @@ class RadioApp(ctk.CTk):
                         Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
                         if np.isnan(Wp) or Wp > 50:
                             Wp = 50.0
+                        total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
                         l = 0
                         h = 0
                         # ----- Визуализация для открытого интервала -----
@@ -477,7 +480,7 @@ class RadioApp(ctk.CTk):
                                 Wp = 12 * (1 - p_rel) ** 2
                             else:
                                 Wp = 0.0
-
+                            total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
                         # Визуализация для полуоткрытого интервала
                         ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
                                   label='LOS - H₀ (критический уровень)')
@@ -544,7 +547,8 @@ class RadioApp(ctk.CTk):
                     f"Протяжённость участка отражения l0 = {l0:.0f} м\n"
                     f"Коэфф. расходимости D = {D:.4f}\n"
                     f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
-                    f"Затухание на рельеф Wp = {Wp:.1f} дБ"
+                    f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
+                    f"Суммарные потери: {total_loss:.1f} дБ"
                 )
             else:
                 info_extra = (
@@ -552,9 +556,8 @@ class RadioApp(ctk.CTk):
                     f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
                     f"Фактический просвет H(g) = {H_g:.2f} м\n"
                     f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
-                    f"Протяжённость препятствия l = {l:.0f} м\n"
-                    f"Высота препятствия h = {h:.1f} м\n"
-                    f"Затухание на рельеф Wp = {Wp:.1f} дБ"
+                    f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
+                    f"Суммарные потери: {total_loss:.1f} дБ"
                 )
         elif d1 is not None and H_g is not None and H_g <= 0:
             info_extra = "\n(Интервал закрытый с учётом рефракции: H(g) <= 0)"
