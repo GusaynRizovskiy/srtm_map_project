@@ -221,7 +221,7 @@ class RadioApp(ctk.CTk):
         main_frame.grid_columnconfigure(1, weight=1)
         main_frame.grid_rowconfigure(0, weight=1)
 
-        # Шрифты
+        # Шрифты (увеличены)
         text_font = ("Segoe UI", 13)
         bold_font = ("Segoe UI", 14, "bold")
 
@@ -270,7 +270,7 @@ class RadioApp(ctk.CTk):
 
         # --- Анализ интервала ---
         clearances = los_line - elev_curved
-        if np.min(clearances) >= 0:  # LOS не пересекает рельеф -> открытый или полуоткрытый
+        if np.min(clearances) >= 0:
             min_clearance_idx = np.argmin(clearances)
             x0 = dist[min_clearance_idx]
             y0 = elev_curved[min_clearance_idx]
@@ -291,9 +291,7 @@ class RadioApp(ctk.CTk):
                 H0 = np.sqrt((wavelength * d1 * d2) / total_dist)
                 R0 = 6370000.0
                 K = 4 / 3
-                # Геометрический просвет (без учёта рефракции)
-                H_geom = y_proj - y0
-                # Поправка на рефракцию
+                H_geom = y_proj - y0 - (d1 * d2) / (2 * R0)
                 delta_H = (d1 * d2) / (2 * R0) * (1 - 1 / K)
                 H_g = H_geom + delta_H
 
@@ -302,8 +300,10 @@ class RadioApp(ctk.CTk):
                 else:
                     T_i = 0
 
-                # Определяем тип интервала по эффективному просвету H_g
-                if H_g >= H0:
+                # --- Классификация интервала ---
+                if H_geom <= 0:
+                    results_label.configure(text="Интервал закрытый (LOS пересекает рельеф)")
+                elif H_g >= H0:
                     # ========== ОТКРЫТЫЙ ИНТЕРВАЛ ==========
                     h0_rel = H_g / H0
                     surface_text = self.surface_var.get()
@@ -324,7 +324,7 @@ class RadioApp(ctk.CTk):
                         }
                     phi = phi_table.get(surface_text, 0.8)
 
-                    # Поиск участка отражения (пересечения LOS-H0 с рельефом)
+                    # Поиск участка отражения
                     critical_line = los_line - H0
                     crosses = []
                     for i in range(len(dist) - 1):
