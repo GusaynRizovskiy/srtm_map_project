@@ -365,7 +365,14 @@ class RadioApp(ctk.CTk):
                         if np.isnan(Wp) or Wp > 50:
                             Wp = 50.0
                         total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
-                        P_rx = power_dbm + 2 * G_dBi - total_loss
+                        # Расчёт уровня сигнала на входе приёмника
+                        P_tx_dbm = 10 * np.log10(power * 1000)  # перевод Вт в дБм
+                        P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
+                        # Проверка работоспособности
+                        if P_prm_dbm >= sensitivity:
+                            status = "ПРИГОДЕН"
+                        else:
+                            status = "НЕ ПРИГОДЕН"
                         l = 0
                         h = 0
                         # ----- Визуализация для открытого интервала -----
@@ -483,7 +490,13 @@ class RadioApp(ctk.CTk):
                             else:
                                 Wp = 0.0
                             total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
-                            P_rx = power_dbm + 2 * G_dBi - total_loss
+                            # Расчёт уровня сигнала на входе приёмника
+                            P_tx_dbm = 10 * np.log10(power * 1000)
+                            P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
+                            if P_prm_dbm >= sensitivity:
+                                status = "ПРИГОДЕН"
+                            else:
+                                status = "НЕ ПРИГОДЕН"
                         # Визуализация для полуоткрытого интервала
                         ax_p.plot(dist, critical_line, 'k--', linewidth=1.5, alpha=0.7,
                                   label='LOS - H₀ (критический уровень)')
@@ -536,8 +549,10 @@ class RadioApp(ctk.CTk):
             f"Антенна: {ant_type} (d={ant_diam} м)"
         )
 
+        # Формируем дополнительную информацию в зависимости от типа интервала
         if d1 is not None and H_g is not None and H_g > 0:
             if H_g >= H0:
+                # Открытый интервал
                 h0_rel = H_g / H0
                 surface_text = self.surface_var.get()
                 info_extra = (
@@ -552,17 +567,22 @@ class RadioApp(ctk.CTk):
                     f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
                     f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
                     f"Суммарные потери: {total_loss:.1f} дБ\n"
-                    f"Уровень сигнала на входе приёмника: {P_rx:.1f} дБм"
+                    f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
+                    f"Статус интервала: {status}"
                 )
             else:
+                # Полуоткрытый интервал
                 info_extra = (
                     f"\nd1 = {d1:.0f} м, d2 = {d2:.0f} м\n"
                     f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
                     f"Фактический просвет H(g) = {H_g:.2f} м\n"
                     f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
+                    f"Протяжённость препятствия l = {l:.0f} м\n"
+                    f"Высота препятствия h = {h:.1f} м\n"
                     f"Затухание на рельеф Wp = {Wp:.1f} дБ\n"
                     f"Суммарные потери: {total_loss:.1f} дБ\n"
-                    f"Уровень сигнала на входе приёмника: {P_rx:.1f} дБм"
+                    f"Мощность на входе приёмника: {P_prm_dbm:.1f} дБм\n"
+                    f"Статус интервала: {status}"
                 )
         elif d1 is not None and H_g is not None and H_g <= 0:
             info_extra = "\n(Интервал закрытый с учётом рефракции: H(g) <= 0)"
@@ -573,7 +593,6 @@ class RadioApp(ctk.CTk):
         ax_p.text(0.02, 0.98, info_text, transform=ax_p.transAxes,
                   fontsize=9, verticalalignment='top',
                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-
         canvas_p = FigureCanvasTkAgg(fig_p, master=top)
         canvas_p.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
         canvas_p.get_tk_widget().configure(bg='#FFFFFF', highlightthickness=0)
