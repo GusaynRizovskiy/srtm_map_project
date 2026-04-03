@@ -259,10 +259,10 @@ class RadioApp(ctk.CTk):
 
                     if H_g >= H0:
                         # ----- ОТКРЫТЫЙ ИНТЕРВАЛ -----
-                        # Точка и перпендикуляр НЕ рисуются
                         h0_rel = H_g / H0
-                        # Определяем Φ по таблице 3.4
                         surface_text = self.surface_var.get()
+
+                        # Выбор Φ по таблице 3.4
                         if wavelength_cm <= 30:
                             phi_table = {
                                 "Малопересеченная равнина, пойменные луга, солончаки": 0.9,
@@ -277,8 +277,85 @@ class RadioApp(ctk.CTk):
                                 "Среднепересеченная открытая местность": 0.7,
                                 "Среднепересеченная местность, покрытая лесом": 0.6
                             }
-                        phi3 = phi_table.get(surface_text, 0.8)
-                        D = 1.0  # коэффициент расходимости (пока 1)
+                        phi = phi_table.get(surface_text, 0.8)
+
+                        # ----- АВТОМАТИЧЕСКИЙ РАСЧЁТ D -----
+                        # Пытаемся найти участок отражения (пересечения LOS-H0 с рельефом)
+                        critical_line = los_line - H0
+                        crosses = []
+                        for i in range(len(dist) - 1):
+                            diff1 = elev_curved[i] - critical_line[i]
+                            diff2 = elev_curved[i + 1] - critical_line[i + 1]
+                            if diff1 * diff2 < 0:
+                                x1c, x2c = dist[i], dist[i + 1]
+                                y1c, y2c = elev_curved[i], elev_curved[i + 1]
+                                yc1, yc2 = critical_line[i], critical_line[i + 1]
+                                denom = (y2c - y1c) - (yc2 - yc1)
+                                if abs(denom) > 1e-9:
+                                    t_cross = (yc1 - y1c) / denom
+                                    x_cross = x1c + t_cross * (x2c - x1c)
+                                    crosses.append(x_cross)
+
+                        if len(crosses) >= 2:
+                            crosses.sort()
+                            # Находим пересечения, охватывающие точку минимума просвета x0
+                            left_cross = None
+                            right_cross = None
+                            for xc in crosses:
+                                if xc <= x0 and (left_cross is None or xc > left_cross):
+                                    left_cross = xc
+                                if xc >= x0 and (right_cross is None or xc < right_cross):
+                                    right_cross = xc
+                            if left_cross is not None and right_cross is not None and left_cross < right_cross:
+                                l0 = right_cross - left_cross  # протяжённость участка отражения, м
+                                # Находим максимальную высоту рельефа на [left_cross, right_cross]
+                                mask = (dist >= left_cross) & (dist <= right_cross)
+                                if np.any(mask):
+                                    max_elev = np.max(elev_curved[mask])
+                                    y_left_crit = np.interp(left_cross, dist, critical_line)
+                                    y_right_crit = np.interp(right_cross, dist, critical_line)
+                                    x_max = dist[mask][np.argmax(elev_curved[mask])]
+                                    if right_cross - left_cross > 0:
+                                        t_mn = (x_max - left_cross) / (right_cross - left_cross)
+                                        y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
+                                        delta_y = max_elev - y_mn  # высота хорды (стрелка прогиба), м
+                                    else:
+                                        delta_y = 0
+                                else:
+                                    l0, delta_y = 0, 0
+                            else:
+                                l0, delta_y = 0, 0
+                        else:
+                            l0, delta_y = 0, 0
+                        # Расчёт радиуса кривизны a по формуле (3.14): a = l0^2 / (8 * Δy)
+                        if l0 > 0 and delta_y > 0:
+                            a = (l0 ** 2) / (8 * delta_y)  # м
+                            # Ограничиваем разумными пределами (от 100 м до 100 000 км)
+                            a = np.clip(a, 100, 100_000_000)
+                        else:
+                            a = 1e9  # большое значение -> плоская поверхность
+
+                        # Расчёт коэффициента расходимости D по формуле (3.15)
+                        R = total_dist
+                        R1 = d1
+                        H = H_g
+                        H0_val = H0
+                        if a > 0 and H0_val > 0 and R > 0:
+                            term = (2 * R1 * (R - R1)) / (a * R) * (H / H0_val)
+                            # Ограничиваем term, чтобы избежать ошибок
+                            term = max(0, term)
+                            D = 1.0 / np.sqrt(1 + term)
+                        else:
+                            D = 1.0
+
+                        # Эффективный коэффициент отражения
+                        # Если D < 0.95, учитываем расходимость
+                        if D < 0.95:
+                            phi3 = phi * D
+                        else:
+                            phi3 = phi
+
+                        # Расчёт затухания по формуле (3.16)
                         cos_term = np.cos((np.pi / 3) * (h0_rel ** 2))
                         cos_term = np.clip(cos_term, -1.0, 1.0)
                         Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
@@ -286,6 +363,56 @@ class RadioApp(ctk.CTk):
                             Wp = 50.0
                         l = 0
                         h = 0
+                        # ----- Визуализация для открытого интервала -----
+                        if l0 > 0 and delta_y > 0 and left_cross is not None and right_cross is not None:
+                            # Точки пересечения
+                            y_left_crit = np.interp(left_cross, dist, critical_line)
+                            y_right_crit = np.interp(right_cross, dist, critical_line)
+                            ax_p.plot(left_cross, y_left_crit, 'bo', markersize=6, label='Границы участка отражения')
+                            ax_p.plot(right_cross, y_right_crit, 'bo', markersize=6)
+
+                            # Хорда l0 (зелёная линия)
+                            ax_p.plot([left_cross, right_cross], [y_left_crit, y_right_crit], 'g-', linewidth=2,
+                                      label=f'Хорда l₀ = {l0:.0f} м')
+
+                            # Стрелка Δy (красная вертикаль от хорды до максимума рельефа)
+                            # Находим координаты максимальной точки рельефа на [left_cross, right_cross]
+                            mask = (dist >= left_cross) & (dist <= right_cross)
+                            if np.any(mask):
+                                max_idx = np.argmax(elev_curved[mask])
+                                x_max = dist[mask][max_idx]
+                                y_max = elev_curved[mask][max_idx]
+                                # Вычисляем высоту хорды в точке x_max
+                                y_chord = np.interp(x_max, [left_cross, right_cross], [y_left_crit, y_right_crit])
+                                ax_p.plot([x_max, x_max], [y_chord, y_max], 'r-', linewidth=2,
+                                          label=f'Δy = {delta_y:.1f} м')
+                                ax_p.plot(x_max, y_max, 'ro', markersize=6, label='Вершина отражающего участка')
+
+                            # Схематичная дуга радиуса a
+                            # Рисуем полуокружность над хордой (центр на середине хорды, на расстоянии a от хорды)
+                            center_x = (left_cross + right_cross) / 2
+                            chord_half = l0 / 2
+                            # Радиус a (в метрах)
+                            if a < 1e8:  # не слишком большое
+                                # Вычисляем центр окружности: он находится на перпендикуляре к хорде вверх на величину (a - Δy)
+                                # Но для простоты нарисуем дугу с центром в середине хорды, радиусом a, углами от -α до α
+                                # где α = arcsin(chord_half / a)
+                                if a > chord_half:
+                                    alpha = np.arcsin(chord_half / a)
+                                    # Координаты дуги (верхняя полуокружность)
+                                    theta = np.linspace(-alpha, alpha, 50)
+                                    x_arc = center_x + a * np.sin(theta)
+                                    y_arc = y_left_crit + (a - a * np.cos(theta))  # поднятие относительно концов хорды
+                                    # Сдвигаем, чтобы концы дуги совпали с концами хорды
+                                    # Более простой способ: центр окружности находится на расстоянии a от хорды по вертикали
+                                    center_y = y_left_crit + a - np.sqrt(
+                                        a ** 2 - chord_half ** 2)  # точный центр для дуги
+                                    y_arc = center_y - a * np.cos(theta)
+                                    ax_p.plot(x_arc, y_arc, 'm--', linewidth=1.5, alpha=0.7,
+                                              label=f'Радиус a = {a / 1000:.1f} км')
+                                    # Отметим центр окружности
+                                    ax_p.plot(center_x, center_y, 'mx', markersize=5)
+
                     else:
                         # ----- ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ -----
                         # Рисуем точку и перпендикуляр
@@ -414,7 +541,11 @@ class RadioApp(ctk.CTk):
                     f"Относительный просвет h0 = {h0_rel:.3f}\n"
                     f"Коэфф. перерыва связи T_i = {T_i:.4f} %\n"
                     f"Тип поверхности: {surface_text}\n"
-                    f"Коэфф. отражения Φ₃ = {phi3:.2f}\n"
+                    f"Протяжённость участка отражения l0 = {l0:.0f} м\n"
+                    f"Высота хорды Δy = {delta_y:.2f} м\n"
+                    f"Радиус кривизны a = {a / 1000:.2f} км\n"
+                    f"Коэфф. расходимости D = {D:.4f}\n"
+                    f"Коэфф. отражения Φ₃ = {phi3:.4f}\n"
                     f"Затухание на рельеф Wp = {Wp:.1f} дБ"
                 )
             else:
