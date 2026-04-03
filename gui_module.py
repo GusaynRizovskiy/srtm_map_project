@@ -181,8 +181,8 @@ class RadioApp(ctk.CTk):
             ant_type = "Однозеркальная (η=0.6)"
 
         freq_ghz = freq_mhz / 1000.0
-        wavelength = 0.3 / freq_ghz
-        wavelength_cm = wavelength * 100
+        wavelength = 0.3 / freq_ghz  # м
+        wavelength_cm = wavelength * 100  # см
 
         ant_efficiency = 0.6 if "Однозеркальная" in ant_type else 0.7
         G_linear = (np.pi * ant_diam) ** 2 * ant_efficiency / (wavelength ** 2)
@@ -200,7 +200,7 @@ class RadioApp(ctk.CTk):
         los_line = np.linspace(ant_start, ant_end, len(dist))
         f_radius = app_logic.get_fresnel_zone(dist, total_dist, freq_ghz)
 
-        # --- Окно с панелями ---
+        # --- Окно с левой панелью и графиком ---
         top = ctk.CTkToplevel(self)
         top.title("Технический профиль трассы")
         top.geometry("1500x700")
@@ -209,11 +209,11 @@ class RadioApp(ctk.CTk):
         main_frame = ctk.CTkFrame(top, fg_color="#FFFFFF")
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Левая панель (исходные данные + результаты)
+        # Левая панель (scrollable)
         left_frame = ctk.CTkScrollableFrame(main_frame, width=340, fg_color="#F2F2F2", corner_radius=10)
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        # Правая панель (график)
+        # Правая область для графика
         right_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF")
         right_frame.grid(row=0, column=1, sticky="nsew")
 
@@ -221,8 +221,12 @@ class RadioApp(ctk.CTk):
         main_frame.grid_columnconfigure(1, weight=1)
         main_frame.grid_rowconfigure(0, weight=1)
 
-        # --- Заполнение левой панели ---
-        ctk.CTkLabel(left_frame, text="Исходные данные", font=("Arial", 14, "bold")).pack(pady=(10, 5))
+        # Шрифты
+        text_font = ("Segoe UI", 11)
+        bold_font = ("Segoe UI", 13, "bold")
+
+        # --- Исходные данные ---
+        ctk.CTkLabel(left_frame, text="Исходные данные", font=bold_font).pack(pady=(10, 5))
         left_text = (
             f"Высота антенны А1: {h1} м\n"
             f"Высота антенны А2: {h2} м\n"
@@ -237,13 +241,13 @@ class RadioApp(ctk.CTk):
             f"Тип антенны: {ant_type}\n"
             f"Подстилающая поверхность: {self.surface_var.get()}"
         )
-        ctk.CTkLabel(left_frame, text=left_text, justify="left", font=("Arial", 11), text_color="black").pack(padx=10,
-                                                                                                              pady=5,
-                                                                                                              anchor="nw")
+        ctk.CTkLabel(left_frame, text=left_text, justify="left", font=text_font, text_color="black",
+                     wraplength=320).pack(padx=10, pady=5, anchor="nw")
 
         ctk.CTkLabel(left_frame, text="", height=10).pack()
-        ctk.CTkLabel(left_frame, text="Результаты расчёта", font=("Arial", 14, "bold")).pack(pady=(10, 5))
-        results_label = ctk.CTkLabel(left_frame, text="", justify="left", font=("Arial", 11), text_color="black")
+        ctk.CTkLabel(left_frame, text="Результаты расчёта", font=bold_font).pack(pady=(10, 5))
+        results_label = ctk.CTkLabel(left_frame, text="", justify="left", font=text_font, text_color="black",
+                                     wraplength=320)
         results_label.pack(padx=10, pady=5, anchor="nw")
 
         # --- График ---
@@ -258,16 +262,17 @@ class RadioApp(ctk.CTk):
                           label='Зона Френеля')
         ax_p.plot(dist, los_line, 'b--', label='Линия LOS', lw=1.5)
 
+        # Мачты
         ax_p.plot([dist[0], dist[0]], [ground_start, ant_start], color='#444444', lw=3)
         ax_p.plot(dist[0], ant_start, 'ko', markersize=6, markeredgecolor='white')
         ax_p.plot([dist[-1], dist[-1]], [ground_end, ant_end], color='#444444', lw=3)
         ax_p.plot(dist[-1], ant_end, 'ko', markersize=6, markeredgecolor='white')
 
-        # --- Переменные ---
+        # --- Переменные для результатов ---
         d1 = d2 = H0 = H_g = T_i = l = h = Wp = total_loss = P_prm_dbm = status = None
         phi3 = D = l0 = delta_y = None
-        x_left = x_right = None
 
+        # --- Анализ интервала (весь ваш существующий код, только с обновлением results_label) ---
         clearances = los_line - elev_curved
         if np.min(clearances) >= 0:
             min_clearance_idx = np.argmin(clearances)
@@ -301,7 +306,7 @@ class RadioApp(ctk.CTk):
                         T_i = 0
 
                     if H_g >= H0:
-                        # --- ОТКРЫТЫЙ ИНТЕРВАЛ ---
+                        # ----- ОТКРЫТЫЙ ИНТЕРВАЛ -----
                         h0_rel = H_g / H0
                         surface_text = self.surface_var.get()
 
@@ -321,6 +326,7 @@ class RadioApp(ctk.CTk):
                             }
                         phi = phi_table.get(surface_text, 0.8)
 
+                        # Поиск участка отражения
                         critical_line = los_line - H0
                         crosses = []
                         for i in range(len(dist) - 1):
@@ -335,7 +341,6 @@ class RadioApp(ctk.CTk):
                                     t_cross = (yc1 - y1c) / denom
                                     x_cross = x1c + t_cross * (x2c - x1c)
                                     crosses.append(x_cross)
-
                         l0 = 0
                         delta_y = 0
                         left_cross = right_cross = None
@@ -360,7 +365,6 @@ class RadioApp(ctk.CTk):
                                         t_mn = (x_max - left_cross) / l0
                                         y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
                                         delta_y = max_elev - y_mn
-
                         if l0 > 0 and delta_y > 0:
                             a = (l0 ** 2) / (8 * delta_y)
                             a = np.clip(a, 100, 100_000_000)
@@ -369,9 +373,9 @@ class RadioApp(ctk.CTk):
 
                         R = total_dist
                         R1 = d1
-                        H_val = H_g
-                        if a > 0 and H0 > 0 and R > 0 and l0 > 0:
-                            term = (2 * R1 * (R - R1)) / (a * R) * (H_val / H0)
+                        H = H_g
+                        if a > 0 and H0 > 0 and R > 0:
+                            term = (2 * R1 * (R - R1)) / (a * R) * (H / H0)
                             term = max(0, term)
                             D = 1.0 / np.sqrt(1 + term)
                         else:
@@ -390,6 +394,7 @@ class RadioApp(ctk.CTk):
                         P_prm_dbm = P_tx_dbm + G_dBi + G_dBi - total_loss
                         status = "ПРИГОДЕН" if P_prm_dbm >= sensitivity else "НЕ ПРИГОДЕН"
 
+                        # Результаты для отображения
                         result_text = (
                             f"d1 = {d1:.0f} м\nd2 = {d2:.0f} м\n"
                             f"Радиус зоны Френеля H0 = {H0:.2f} м\n"
@@ -423,7 +428,7 @@ class RadioApp(ctk.CTk):
                                 y_chord = np.interp(x_max, [left_cross, right_cross], [y_left_crit, y_right_crit])
                                 ax_p.plot([x_max, x_max], [y_chord, y_max], 'r-', linewidth=2,
                                           label=f'Δy = {delta_y:.1f} м')
-                                ax_p.plot(x_max, y_max, 'ro', markersize=6)
+                                ax_p.plot(x_max, y_max, 'ro', markersize=6, label='Вершина отражающего участка')
                             if a < 5e5:
                                 center_x = (left_cross + right_cross) / 2
                                 chord_half = l0 / 2
@@ -438,7 +443,7 @@ class RadioApp(ctk.CTk):
                                     ax_p.plot(center_x, center_y, 'mx', markersize=5)
 
                     else:
-                        # --- ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ ---
+                        # ----- ПОЛУОТКРЫТЫЙ ИНТЕРВАЛ -----
                         ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                                   label='Ближайшая точка рельефа')
                         ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
@@ -457,10 +462,8 @@ class RadioApp(ctk.CTk):
                                     t_cross = (yc1 - y1c) / denom
                                     x_cross = x1c + t_cross * (x2c - x1c)
                                     crosses.append(x_cross)
-
                         l = 0
                         h = 0
-                        left_cross = right_cross = None
                         if len(crosses) >= 2:
                             crosses.sort()
                             left_cross = None
@@ -471,26 +474,27 @@ class RadioApp(ctk.CTk):
                                 if xc >= x0 and (right_cross is None or xc < right_cross):
                                     right_cross = xc
                             if left_cross is not None and right_cross is not None and left_cross < right_cross:
-                                x_left, x_right = left_cross, right_cross
-                                l = x_right - x_left
-                                mask = (dist >= x_left) & (dist <= x_right)
+                                l = right_cross - left_cross
+                                mask = (dist >= left_cross) & (dist <= right_cross)
                                 if np.any(mask):
                                     max_elev = np.max(elev_curved[mask])
-                                    y_left_crit = np.interp(x_left, dist, critical_line)
-                                    y_right_crit = np.interp(x_right, dist, critical_line)
+                                    y_left_crit = np.interp(left_cross, dist, critical_line)
+                                    y_right_crit = np.interp(right_cross, dist, critical_line)
                                     x_max = dist[mask][np.argmax(elev_curved[mask])]
                                     if l > 0:
-                                        t_mn = (x_max - x_left) / l
+                                        t_mn = (x_max - left_cross) / l
                                         y_mn = y_left_crit + t_mn * (y_right_crit - y_left_crit)
                                         h = max_elev - y_mn
-
                         if l <= 0 or h <= 0:
                             Wp = 0.0
                             l = 0
                             h = 0
                         else:
                             p_rel = H_g / H0 if H0 > 0 else 0
-                            Wp = 12 * (1 - p_rel) ** 2 if p_rel < 1 else 0.0
+                            if p_rel < 1:
+                                Wp = 12 * (1 - p_rel) ** 2
+                            else:
+                                Wp = 0.0
 
                         total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
                         P_tx_dbm = 10 * np.log10(power * 1000)
@@ -529,15 +533,10 @@ class RadioApp(ctk.CTk):
                             ax_p.plot([x0, x0], [y_mn_at_x0, y0], 'r-', linewidth=2, label=f'h = {h:.1f} м')
                             ax_p.text(x0 + 5, (y_mn_at_x0 + y0) / 2, f'h = {h:.1f} м', fontsize=8, color='red',
                                       bbox=dict(facecolor='white', alpha=0.6))
-
                 else:
                     results_label.configure(text="Интервал закрытый (LOS пересекает рельеф с учётом рефракции)")
-                    ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф с учётом рефракции)",
-                              transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
         else:
             results_label.configure(text="Интервал закрытый (LOS пересекает рельеф)")
-            ax_p.text(0.5, 0.5, "Интервал закрытый (LOS пересекает рельеф)",
-                      transform=ax_p.transAxes, ha='center', fontsize=12, color='red')
 
         # --- Оформление графика ---
         ax_p.set_xlim(0, total_dist)
@@ -550,6 +549,7 @@ class RadioApp(ctk.CTk):
         ax_p.legend(loc='upper right', frameon=True, facecolor='white')
         ax_p.grid(True, alpha=0.3, color='gray')
 
+        # --- Встраивание графика ---
         canvas_p = FigureCanvasTkAgg(fig_p, master=right_frame)
         canvas_p.get_tk_widget().pack(fill="both", expand=True)
         canvas_p.draw()
