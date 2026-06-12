@@ -11,6 +11,7 @@ import tkinter as tk
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
+
 def calculate_refraction_loss(Ti_percent, freq_ghz):
     """
     Затухание на рефракцию Wз, дБ.
@@ -33,11 +34,11 @@ def calculate_refraction_loss(Ti_percent, freq_ghz):
             A, B = A_ref[-1], B_ref[-1]
         else:
             idx = 0
-            while idx < len(f_ref)-1 and f > f_ref[idx+1]:
+            while idx < len(f_ref) - 1 and f > f_ref[idx + 1]:
                 idx += 1
-            t = (log_f - log_f_ref[idx]) / (log_f_ref[idx+1] - log_f_ref[idx])
-            A = A_ref[idx] + t * (A_ref[idx+1] - A_ref[idx])
-            B = B_ref[idx] + t * (B_ref[idx+1] - B_ref[idx])
+            t = (log_f - log_f_ref[idx]) / (log_f_ref[idx + 1] - log_f_ref[idx])
+            A = A_ref[idx] + t * (A_ref[idx + 1] - A_ref[idx])
+            B = B_ref[idx] + t * (B_ref[idx + 1] - B_ref[idx])
         return A + B * 2.0
 
     f_tiny = np.array([0.1, 0.2, 0.4, 0.8, 2.0, 4.0, 6.0])
@@ -62,11 +63,11 @@ def calculate_refraction_loss(Ti_percent, freq_ghz):
             A, B = A_ref[-1], B_ref[-1]
         else:
             idx = 0
-            while idx < len(f_ref)-1 and freq_ghz > f_ref[idx+1]:
+            while idx < len(f_ref) - 1 and freq_ghz > f_ref[idx + 1]:
                 idx += 1
-            t = (log_f - log_f_ref[idx]) / (log_f_ref[idx+1] - log_f_ref[idx])
-            A = A_ref[idx] + t * (A_ref[idx+1] - A_ref[idx])
-            B = B_ref[idx] + t * (B_ref[idx+1] - B_ref[idx])
+            t = (log_f - log_f_ref[idx]) / (log_f_ref[idx + 1] - log_f_ref[idx])
+            A = A_ref[idx] + t * (A_ref[idx + 1] - A_ref[idx])
+            B = B_ref[idx] + t * (B_ref[idx + 1] - B_ref[idx])
         Wz = A + B * np.log10(100.0 / Ti)
     else:
         wz_1 = wz_at_1percent(freq_ghz)
@@ -78,6 +79,7 @@ def calculate_refraction_loss(Ti_percent, freq_ghz):
         Wz = wz_005 + t * (wz_1 - wz_005)
 
     return min(max(Wz, 0.0), 50.0)
+
 
 class RadioApp(ctk.CTk):
     def __init__(self):
@@ -108,13 +110,18 @@ class RadioApp(ctk.CTk):
         self.h2_entry = self.create_field(self.geo_frame, "Высота подвеса А2 (м):", "15")
 
         self.coord_frame = self.create_group("Ручной ввод координат (градусы)")
-        ctk.CTkLabel(self.coord_frame, text="Точка А1 (передатчик):", anchor="w", text_color="black").pack(pady=(5,0), padx=10, fill="x")
+        ctk.CTkLabel(self.coord_frame, text="Точка А1 (передатчик):", anchor="w", text_color="black").pack(pady=(5, 0),
+                                                                                                           padx=10,
+                                                                                                           fill="x")
         self.lat1_entry = self.create_field(self.coord_frame, "Широта (lat):", "")
         self.lon1_entry = self.create_field(self.coord_frame, "Долгота (lon):", "")
-        ctk.CTkLabel(self.coord_frame, text="Точка А2 (приёмник):", anchor="w", text_color="black").pack(pady=(5,0), padx=10, fill="x")
+        ctk.CTkLabel(self.coord_frame, text="Точка А2 (приёмник):", anchor="w", text_color="black").pack(pady=(5, 0),
+                                                                                                         padx=10,
+                                                                                                         fill="x")
         self.lat2_entry = self.create_field(self.coord_frame, "Широта (lat):", "")
         self.lon2_entry = self.create_field(self.coord_frame, "Долгота (lon):", "")
-        self.btn_set_coords = ctk.CTkButton(self.coord_frame, text="Установить точки", command=self.set_points_from_coords)
+        self.btn_set_coords = ctk.CTkButton(self.coord_frame, text="Установить точки",
+                                            command=self.set_points_from_coords)
         self.btn_set_coords.pack(pady=10, padx=10, fill="x")
 
         self.freq_frame = self.create_group("2. Частотные характеристики")
@@ -252,10 +259,12 @@ class RadioApp(ctk.CTk):
 
         left, right, bottom, top = self.map_extent
         if not (left <= lon1 <= right and bottom <= lat1 <= top):
-            mb.showerror("Ошибка", f"Точка А1 выходит за пределы карты.\nДопустимый диапазон:\nШирота: {bottom:.4f} ... {top:.4f}\nДолгота: {left:.4f} ... {right:.4f}")
+            mb.showerror("Ошибка",
+                         f"Точка А1 выходит за пределы карты.\nДопустимый диапазон:\nШирота: {bottom:.4f} ... {top:.4f}\nДолгота: {left:.4f} ... {right:.4f}")
             return
         if not (left <= lon2 <= right and bottom <= lat2 <= top):
-            mb.showerror("Ошибка", f"Точка А2 выходит за пределы карты.\nДопустимый диапазон:\nШирота: {bottom:.4f} ... {top:.4f}\nДолгота: {left:.4f} ... {right:.4f}")
+            mb.showerror("Ошибка",
+                         f"Точка А2 выходит за пределы карты.\nДопустимый диапазон:\nШирота: {bottom:.4f} ... {top:.4f}\nДолгота: {left:.4f} ... {right:.4f}")
             return
 
         self.points = [(lat1, lon1), (lat2, lon2)]
@@ -294,7 +303,6 @@ class RadioApp(ctk.CTk):
 
         d_km = distance / 1000.0
         if distance > 0:
-            # Используем 3.14 как в вашем запросе или np.pi для точности
             free_space_loss = 20 * np.log10((4 * 3.14 * distance) / wavelength)
         else:
             free_space_loss = 0
@@ -342,13 +350,11 @@ class RadioApp(ctk.CTk):
                 text_widget.insert("end", "\n")
 
         ctk.CTkLabel(left_frame, text="Исходные данные", font=("Segoe UI", 16, "bold")).pack(pady=(10, 5))
-        # Увеличиваем высоту до 25 (примерно столько занимают 12 параметров с двойным отступом)
         text_initial = tk.Text(left_frame, wrap="word", font=("Segoe UI", 14),
                                bg="#F2F2F2", fg="black", bd=0, highlightthickness=0,
-                               state="normal", height=25, takefocus=0)  # Добавили takefocus=0
+                               state="normal", height=25, takefocus=0)
         text_initial.pack(padx=10, pady=5, fill="both", expand=False)
 
-        # Перенаправление прокрутки на родительский фрейм
         text_initial.bind("<MouseWheel>", lambda e: left_frame._canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
         text_initial.tag_configure("normal", font=("Segoe UI", 14))
         text_initial.tag_configure("bold", font=("Segoe UI", 14, "bold"))
@@ -374,13 +380,11 @@ class RadioApp(ctk.CTk):
         text_initial.configure(state="disabled")
 
         ctk.CTkLabel(left_frame, text="Результаты расчёта", font=("Segoe UI", 16, "bold")).pack(pady=(20, 5))
-        # Увеличиваем высоту до 40 (чтобы влезли все 19+ строк результатов)
         text_results = tk.Text(left_frame, wrap="word", font=("Segoe UI", 14),
                                bg="#F2F2F2", fg="black", bd=0, highlightthickness=0,
-                               state="normal", height=40, takefocus=0)  # Добавили takefocus=0
+                               state="normal", height=40, takefocus=0)
         text_results.pack(padx=10, pady=5, fill="both", expand=True)
 
-        # Перенаправление прокрутки на родительский фрейм
         text_results.bind("<MouseWheel>", lambda e: left_frame._canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
         text_results.tag_configure("normal", font=("Segoe UI", 14))
         text_results.tag_configure("bold", font=("Segoe UI", 14, "bold"))
@@ -434,8 +438,15 @@ class RadioApp(ctk.CTk):
         dy2 = dy * dy
 
         if dx2 + dy2 > 0:
-            # Пытаемся найти проекцию реальной точки рельефа
-            min_clearance_idx = np.argmin(clearances)
+            # Ищем критическую точку по минимальному относительному просвету (clearance / f_radius)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                relative_clearances = clearances / f_radius
+
+            # На краях трассы (мачты), где f_radius == 0, получаем NaN или Inf.
+            # Заменяем их на бесконечность, чтобы np.argmin гарантированно их игнорировал.
+            relative_clearances[np.isnan(relative_clearances) | np.isinf(relative_clearances)] = np.inf
+
+            min_clearance_idx = np.argmin(relative_clearances)
             x0_real = dist[min_clearance_idx]
             y0_real = elev_curved[min_clearance_idx]
 
@@ -552,7 +563,7 @@ class RadioApp(ctk.CTk):
                 Wp = -10 * np.log10(1 + phi3 ** 2 - 2 * phi3 * cos_term)
                 if np.isnan(Wp) or Wp > 50:
                     Wp = 50.0
-                if Wp < 0: Wp = 0.0  # На открытом пространстве затухание рельефа не должно быть отрицательным бонусом
+                if Wp < 0: Wp = 0.0
 
                 total_loss = free_space_loss + Wp + refraction_loss + 2 * feeder_loss
                 P_prm_dbm = power + G_dB + G_dB - total_loss
@@ -561,8 +572,8 @@ class RadioApp(ctk.CTk):
 
                 result_lines = [
                     f"Длина интервала: {total_dist:.0f} м ({total_dist / 1000:.2f} км)",
-                    f"Длина волны: {wavelength:.3f} м ({wavelength_cm:.1f} см)",  # КОРРЕКТИРОВКА 1: Вернули длину волны
-                    f"Расстояние от передатчика до критической точки d1: {d1:.0f} м",  # КОРРЕКТИРОВКА 2: Считает всегда
+                    f"Длина волны: {wavelength:.3f} м ({wavelength_cm:.1f} см)",
+                    f"Расстояние от передатчика до критической точки d1: {d1:.0f} м",
                     f"Расстояние от приемника до критической точки d2: {d2:.0f} м",
                     f"Коэффициент усиления антенны G: {G_dB:.1f} дБ",
                     f"Радиус зоны Френеля H0: {H0:.2f} м",
@@ -583,7 +594,6 @@ class RadioApp(ctk.CTk):
                 ]
                 update_results_text(result_lines)
 
-                # [Отрисовка элементов отражения на графике - код остался без изменений]
                 if l0 > 0 and delta_y > 0 and left_cross is not None and right_cross is not None:
                     y_left_crit = np.interp(left_cross, dist, critical_line)
                     y_right_crit = np.interp(right_cross, dist, critical_line)
@@ -679,7 +689,7 @@ class RadioApp(ctk.CTk):
                 result_lines = [
                     f"Интервал закрытый (LOS пересекает рельеф)",
                     f"Длина интервала: {total_dist:.0f} м ({total_dist / 1000:.2f} км)",
-                    f"Длина волны: {wavelength:.3f} м ({wavelength_cm:.1f} см)",  # КОРРЕКТИРОВКА 1: Вернули длину волны
+                    f"Длина волны: {wavelength:.3f} м ({wavelength_cm:.1f} см)",
                     f"Расстояние от передатчика до препятствия d1: {d1:.0f} м",
                     f"Расстояние от приёмника до препятствия d2: {d2:.0f} м",
                     f"Радиус зоны Френеля H0: {H0:.2f} м",
@@ -697,7 +707,6 @@ class RadioApp(ctk.CTk):
                 ]
                 update_results_text(result_lines)
 
-                # Отрисовка графических индикаторов для закрытого интервала
                 ax_p.plot(x0, y0, 'ro', markersize=8, markeredgecolor='black', zorder=5,
                           label='Критическая точка рельефа')
                 ax_p.plot([x0, x_proj], [y0, y_proj], 'g-', linewidth=2, label='Перпендикуляр к LOS')
