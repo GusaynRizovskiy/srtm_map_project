@@ -1,0 +1,2 @@
+Для создания .exe файла используй следующую команду:
+python -m PyInstaller --onefile --noconsole --collect-all customtkinter --collect-all rasterio --name RadioProfile --icon assets/iconca.ico main.py
